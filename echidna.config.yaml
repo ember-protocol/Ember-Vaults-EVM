@@ -1,0 +1,48 @@
+# Echidna Configuration for EmberVault
+# https://github.com/crytic/echidna
+
+# Test mode: 'property' for boolean properties, 'assertion' for assert() statements
+testMode: property
+
+# Number of test sequences to generate
+testLimit: 50000
+
+# Maximum number of transactions per sequence
+seqLen: 100
+
+# Contract deployment configuration
+deployer: "0x30000"
+sender: ["0x10000", "0x20000", "0x30000"]
+psender: "0x10000"
+
+# Coverage-guided fuzzing
+coverage: true
+corpusDir: "test/echidna/corpus"
+
+# Shrinking configuration (for minimizing failing test cases)
+shrinkLimit: 5000
+
+# Transaction configuration
+maxGasprice: 0
+maxTimeDelay: 86400  # 24 hours
+maxBlockDelay: 60480  # ~1 week of blocks
+
+# RPC configuration (optional, for stateful testing against forks)
+# rpcUrl: "http://localhost:8545"
+# rpcBlock: 0
+
+# Optimization
+optimize: true
+cryticArgs: ["--solc-remaps", "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/", "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/"]
+
+# Filter configuration
+filterBlacklist: true
+filterFunctions: []
+
+# Output
+format: text
+quiet: false
+
+# Seed for reproducibility (optional)
+# seed: 42
+

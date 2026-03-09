@@ -1,0 +1,50 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+*.lcov
+
+# production
+/build
+/artifacts
+/cache
+
+# misc
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Hardhat files
+.hardhat
+
+# TypeScript
+*.tsbuildinfo
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Audit tool outputs
+slither-report.txt
+mythril-report.txt
+*.json.report
+
+typechain-types/
+coverage.json
+out/*.sol

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./",
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["node", "mocha", "chai"]
+  },
+  "include": [
+    "./scripts/**/*.ts",
+    "./test/**/*.ts",
+    "./hardhat.config.ts",
+    "./typechain-types/**/*.ts",
+    "scripts/interact"
+  ],
+  "exclude": ["node_modules", "dist", "cache", "artifacts"],
+  "files": ["./hardhat.config.ts"]
+}

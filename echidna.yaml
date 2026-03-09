@@ -1,0 +1,74 @@
+# Echidna Configuration for EmberVault
+# https://github.com/crytic/echidna
+
+# Test mode: assertion or property
+testMode: assertion
+
+# Number of test sequences to run
+testLimit: 50000
+
+# Maximum number of transactions per sequence
+seqLen: 100
+
+# Contract deployer address
+deployer: "0x30000"
+
+# Addresses to use as transaction senders
+sender: ["0x10000", "0x20000", "0x30000", "0x40000"]
+
+# Code coverage
+coverage: true
+corpusDir: "echidna-corpus"
+
+# Optimization
+shrinkLimit: 5000
+seed: 0
+
+# Gas limit for transactions
+gasLimit: 12500000
+
+# Solc remappings
+cryticArgs: [
+  "--solc-remaps",
+  "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+  "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/"
+]
+
+# Compilation
+solcArgs: "--via-ir --optimize --optimizer-runs 200"
+solcLibs: []
+
+# Filters - contracts to test
+filterBlacklist: false
+filterFunctions: []
+
+# Multi-ABI mode
+# multi-abi: true
+
+# Transaction limit
+txLimit: 100000
+
+# Shrink tests
+shrinkTest: true
+
+# Output format
+format: text
+
+# Quiet mode (less verbose)
+quiet: false
+
+# Assertion checking
+checkAsserts: true
+
+# Test property prefix (for property mode)
+# prefix: "echidna_"
+
+# Ether balance for test accounts
+balanceAddr: 0xffffffff
+
+# Contracts to deploy
+# contracts: ["EmberVault", "EmberProtocolConfig"]
+
+# ABIs to use
+# abis: []
+
