@@ -25,10 +25,12 @@
     "fuzz:echidna": "echidna-test . --contract EmberVaultProperties --config echidna.yaml",
     "fuzz:echidna:docker": "docker run -it --rm -v $PWD:/src trailofbits/eth-security-toolbox echidna-test /src --contract EmberVaultProperties --config /src/echidna.yaml",
     "deploy:protocol-config": "hardhat run scripts/deploy/protocol-config.ts",
+    "deploy:vault-validator": "hardhat run scripts/deploy/vault-validator.ts",
     "deploy:deposit-token": "hardhat run scripts/deploy/deposit-token.ts",
     "deploy:vault": "hardhat run scripts/deploy/ember-vault.ts",
     "deploy:eth-vault": "hardhat run scripts/deploy/ember-eth-vault.ts",
     "upgrade:vaults": "hardhat run scripts/upgrade/vault.ts",
+    "upgrade:protocol-config": "hardhat run scripts/upgrade/protocol-config.ts",
     "interact:mint-tokens": "hardhat run scripts/interact/mint-tokens.ts",
     "interact:deposit-to-vault": "hardhat run scripts/interact/deposit-to-vault.ts",
     "interact:deposit-with-permit": "hardhat run scripts/interact/deposit-with-permit.ts",
@@ -36,7 +38,14 @@
     "interact:deposit-weth": "hardhat run scripts/interact/deposit-weth-to-eth-vault.ts",
     "interact:mint-weth": "hardhat run scripts/interact/mint-weth.ts",
     "interact:redeem-eth-vault": "hardhat run scripts/interact/redeem-from-eth-vault.ts",
-    "interact:process-eth-withdrawals": "hardhat run scripts/interact/process-eth-vault-withdrawals.ts"
+    "interact:process-withdrawals": "hardhat run scripts/interact/process-vault-withdrawals.ts",
+    "interact:process-eth-withdrawals": "hardhat run scripts/interact/process-eth-vault-withdrawals.ts",
+    "interact:set-vault-validator": "hardhat run scripts/interact/set-vault-validator.ts",
+    "interact:set-vault-permanent-fee": "hardhat run scripts/interact/set-vault-permanent-fee.ts",
+    "interact:set-vault-time-based-fee": "hardhat run scripts/interact/set-vault-time-based-fee-percentage.ts",
+    "interact:set-vault-time-based-threshold": "hardhat run scripts/interact/set-vault-time-based-fee-threshold.ts",
+    "interact:set-vault-deposit-allow-list": "hardhat run scripts/interact/set-vault-deposit-allow-list.ts",
+    "interact:set-vault-fee-exemption-list": "hardhat run scripts/interact/set-vault-fee-exemption-list.ts"
   },
   "keywords": [
     "ethereum",

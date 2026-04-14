@@ -20,6 +20,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
+import "./interfaces/IEmberVaultValidator.sol";
 import "./interfaces/IWETH.sol";
 import "./libraries/Math.sol"; // FixedPointMath library
 
@@ -45,13 +46,13 @@ error InvalidWETHAddress();
  *         - ETH deposits are automatically wrapped to WETH
  *         - User withdrawals send native ETH (WETH is unwrapped)
  *         - Sub-account withdrawals send WETH (for DeFi strategies)
- * 
+ *
  * Key Differences from EmberVault:
  * - depositETH() - wraps ETH to WETH, then deposits
  * - mintWithETH() - wraps ETH to WETH, then mints shares
  * - processWithdrawalRequests() - unwraps WETH to ETH before sending to users
  * - withdrawFromVaultWithoutRedeemingShares() - sends WETH to sub-accounts (unchanged)
- * 
+ *
  * Maintains full ERC-4626 compliance with WETH as the asset.
  */
 contract EmberETHVault is
@@ -130,13 +131,13 @@ contract EmberETHVault is
   uint256 public maxTVL;
   uint256 public minWithdrawableShares;
   mapping(address => bool) public subAccounts;
-  
+
   PlatformFee public platformFee;
   Rate public rate;
   Roles public roles;
   IEmberProtocolConfig public protocolConfig;
   PauseStatus public pauseStatus;
-  
+
   uint256 public sequenceNumber;
   WithdrawalRequest[] public pendingWithdrawals;
   uint256 private withdrawalQueueStartIndex;
@@ -182,6 +183,14 @@ contract EmberETHVault is
     address indexed vault,
     uint256 previousInterval,
     uint256 newInterval,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  event VaultMaxRateChangePerUpdateChanged(
+    address indexed vault,
+    uint256 previousMaxRateChangePerUpdate,
+    uint256 newMaxRateChangePerUpdate,
     uint256 timestamp,
     uint256 sequenceNumber
   );
@@ -322,6 +331,14 @@ contract EmberETHVault is
     uint256 requestSequenceNumber
   );
 
+  event WithdrawalFeeCharged(
+    address indexed vault,
+    address indexed owner,
+    uint256 requestSequenceNumber,
+    uint256 permanentFeeCharged,
+    uint256 timeBasedFeeCharged
+  );
+
   event ProcessRequestsSummary(
     address indexed vault,
     uint256 totalRequestProcessed,
@@ -388,10 +405,10 @@ contract EmberETHVault is
     if (params.operator == address(0)) revert ZeroAddress();
     if (params.rateManager == address(0)) revert ZeroAddress();
     if (params.collateralToken == address(0)) revert ZeroAddress();
-    
+
     // Verify collateralToken is a WETH contract by checking it implements IWETH interface
     if (!_isWETH(params.collateralToken)) revert InvalidWETHAddress();
-    
+
     if (
       params.admin == params.operator ||
       params.admin == params.rateManager ||
@@ -420,7 +437,7 @@ contract EmberETHVault is
     if (bytes(params.name).length == 0) revert InvalidValue();
     if (params.minWithdrawableShares == 0) revert ZeroAmount();
     if (params.maxTVL == 0) revert ZeroAmount();
-    
+
     _vaultName = params.name;
     maxTVL = params.maxTVL;
     minWithdrawableShares = params.minWithdrawableShares;
@@ -440,11 +457,7 @@ contract EmberETHVault is
       lastUpdatedAt: currentTime
     });
 
-    pauseStatus = PauseStatus({
-      deposits: false,
-      withdrawals: false,
-      privilegedOperations: false
-    });
+    pauseStatus = PauseStatus({ deposits: false, withdrawals: false, privilegedOperations: false });
 
     if (configProxy.isAccountBlacklisted(params.admin)) revert Blacklisted();
     if (configProxy.isAccountBlacklisted(params.operator)) revert Blacklisted();
@@ -510,11 +523,11 @@ contract EmberETHVault is
    */
   function depositETH(address receiver) external payable nonReentrant returns (uint256 shares) {
     if (msg.value == 0) revert ZeroAmount();
-    
+
     // Wrap ETH to WETH
-    IWETH(asset()).deposit{value: msg.value}();
+    IWETH(asset()).deposit{ value: msg.value }();
     emit ETHWrapped(msg.value);
-    
+
     // Deposit WETH (vault now holds WETH)
     return _deposit(msg.value, receiver, address(this));
   }
@@ -525,24 +538,27 @@ contract EmberETHVault is
    * @param receiver Address to receive the shares
    * @return assets Amount of ETH consumed
    */
-  function mintWithETH(uint256 shares, address receiver) external payable nonReentrant returns (uint256 assets) {
+  function mintWithETH(
+    uint256 shares,
+    address receiver
+  ) external payable nonReentrant returns (uint256 assets) {
     assets = previewMint(shares);
     if (msg.value < assets) revert InsufficientBalance();
-    
+
     // Wrap exact amount needed
-    IWETH(asset()).deposit{value: assets}();
+    IWETH(asset()).deposit{ value: assets }();
     emit ETHWrapped(assets);
-    
+
     // Deposit WETH
     _deposit(assets, receiver, address(this));
-    
+
     // Refund excess ETH
     if (msg.value > assets) {
       uint256 refund = msg.value - assets;
-      (bool success, ) = msg.sender.call{value: refund}("");
+      (bool success, ) = msg.sender.call{ value: refund }("");
       if (!success) revert ETHTransferFailed();
     }
-    
+
     return assets;
   }
 
@@ -669,11 +685,15 @@ contract EmberETHVault is
     uint256 currentTVL = totalAssets();
     if (currentTVL > maxTVL) revert MaxTVLReached();
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     uint256 currentTime = _getChainTimestampMs();
+
+    // Record last deposit timestamp for time-based withdrawal fee calculation
+    if (address(vaultValidator) != address(0)) {
+      vaultValidator.recordDeposit(address(this), receiver, currentTime);
+    }
+
     uint256 currentSequenceNumber = sequenceNumber;
 
     emit VaultDeposit(
@@ -730,11 +750,15 @@ contract EmberETHVault is
     uint256 currentTVL = totalAssets();
     if (currentTVL > maxTVL) revert MaxTVLReached();
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     uint256 currentTime = _getChainTimestampMs();
+
+    // Record last deposit timestamp for time-based withdrawal fee calculation
+    if (address(vaultValidator) != address(0)) {
+      vaultValidator.recordDeposit(address(this), receiver, currentTime);
+    }
+
     uint256 currentSequenceNumber = sequenceNumber;
 
     emit VaultDeposit(
@@ -754,6 +778,9 @@ contract EmberETHVault is
     if (pauseStatus.deposits) revert OperationPaused();
     if (configProxy.isAccountBlacklisted(depositor)) revert Blacklisted();
     if (subAccounts[depositor]) revert InvalidValue();
+    if (address(vaultValidator) != address(0)) {
+      vaultValidator.validateDeposit(address(this), depositor);
+    }
   }
 
   // ============================================
@@ -766,9 +793,7 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     uint256 previousMaxTVL = maxTVL;
     maxTVL = newMaxTVL;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultMaxTVLUpdated(
       address(this),
@@ -785,14 +810,29 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     uint256 previousInterval = rate.rateUpdateInterval;
     rate.rateUpdateInterval = newInterval;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultRateUpdateIntervalChanged(
       address(this),
       previousInterval,
       newInterval,
+      _getChainTimestampMs(),
+      sequenceNumber
+    );
+  }
+
+  function setMaxRateChangePerUpdate(
+    address caller,
+    uint256 newMaxRateChangePerUpdate
+  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    uint256 previousMaxRateChangePerUpdate = rate.maxRateChangePerUpdate;
+    rate.maxRateChangePerUpdate = newMaxRateChangePerUpdate;
+    _incrementSequence();
+
+    emit VaultMaxRateChangePerUpdateChanged(
+      address(this),
+      previousMaxRateChangePerUpdate,
+      newMaxRateChangePerUpdate,
       _getChainTimestampMs(),
       sequenceNumber
     );
@@ -804,9 +844,7 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyOwnerCaller(caller) {
     address previousAdmin = roles.admin;
     roles.admin = newAdmin;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultAdminChanged(
       address(this),
@@ -823,9 +861,7 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     address previousOperator = roles.operator;
     roles.operator = newOperator;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultOperatorChanged(
       address(this),
@@ -842,9 +878,7 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     address previousRateManager = roles.rateManager;
     roles.rateManager = newRateManager;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultRateManagerUpdated(
       address(this),
@@ -861,9 +895,7 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     uint256 previousFeePercentage = platformFee.platformFeePercentage;
     platformFee.platformFeePercentage = newFeePercentage;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultFeePercentageUpdated(
       address(this),
@@ -880,9 +912,7 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     string memory previousName = _vaultName;
     _vaultName = newName;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultNameUpdated(
       address(this),
@@ -899,9 +929,7 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     uint256 previousMinWithdrawableShares = minWithdrawableShares;
     minWithdrawableShares = newMinWithdrawableShares;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultMinWithdrawableSharesUpdated(
       address(this),
@@ -918,9 +946,7 @@ contract EmberETHVault is
     bool status
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     subAccounts[account] = status;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultSubAccountUpdated(
       address(this),
@@ -948,9 +974,7 @@ contract EmberETHVault is
       revert InvalidValue();
     }
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
     emit VaultPauseStatusUpdated(
       address(this),
       operation,
@@ -958,6 +982,14 @@ contract EmberETHVault is
       _getChainTimestampMs(),
       sequenceNumber
     );
+  }
+
+  /// @notice Sets the vault validator contract address
+  function setVaultValidator(
+    address caller,
+    address _validator
+  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    vaultValidator = IEmberVaultValidator(_validator);
   }
 
   // ============================================
@@ -993,9 +1025,7 @@ contract EmberETHVault is
     // Calculate estimated withdrawal amount
     uint256 estimatedWithdrawAmount = convertToAssets(shares);
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     uint256 currentTime = _getChainTimestampMs();
 
@@ -1090,9 +1120,7 @@ contract EmberETHVault is
 
     if (numRequests == 0) revert ZeroAmount();
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     uint256 startIndex = withdrawalQueueStartIndex;
     uint256 queueLength = pendingWithdrawals.length;
@@ -1105,33 +1133,37 @@ contract EmberETHVault is
       }
     }
 
-    uint256 currentTime = _getChainTimestampMs();
     uint256[5] memory counters;
 
-    // Process requests
-    for (uint256 i = 0; i < numRequests; ) {
-      WithdrawalRequest memory request = pendingWithdrawals[startIndex];
-      delete pendingWithdrawals[startIndex];
+    // Process requests in scoped block to free stack before emit
+    {
+      uint256 currentTime = _getChainTimestampMs();
+      for (uint256 i = 0; i < numRequests; ) {
+        WithdrawalRequest memory request = pendingWithdrawals[startIndex];
+        delete pendingWithdrawals[startIndex];
 
-      unchecked {
-        startIndex++;
-        i++;
-      }
+        unchecked {
+          startIndex++;
+          i++;
+        }
 
-      (bool skipped, bool cancelled, uint256 withdrawAmount, uint256 sharesBurnt) = _processRequest(
-        request,
-        currentTime
-      );
+        (
+          bool skipped,
+          bool cancelled,
+          uint256 withdrawAmount,
+          uint256 sharesBurnt
+        ) = _processRequest(request, currentTime);
 
-      unchecked {
-        counters[1]++;
-        counters[0] += sharesBurnt;
-        counters[2] += withdrawAmount;
-        if (skipped) counters[3]++;
-        if (cancelled) counters[4]++;
+        unchecked {
+          counters[1]++;
+          counters[0] += sharesBurnt;
+          counters[2] += withdrawAmount;
+          if (skipped) counters[3]++;
+          if (cancelled) counters[4]++;
+        }
       }
     }
-    
+
     // Reset queue if empty
     if (startIndex >= queueLength) {
       delete pendingWithdrawals;
@@ -1153,7 +1185,7 @@ contract EmberETHVault is
       totalSupply(),
       balanceOf(address(this)),
       rate.value,
-      currentTime,
+      _getChainTimestampMs(),
       sequenceNumber
     );
   }
@@ -1168,7 +1200,11 @@ contract EmberETHVault is
   ) internal returns (bool skipped, bool cancelled, uint256 withdrawAmount, uint256 sharesBurnt) {
     withdrawAmount = convertToAssets(request.shares);
 
-    (cancelled, skipped, sharesBurnt, withdrawAmount) = _executeWithdrawalWithETH(request, withdrawAmount);
+    (cancelled, skipped, sharesBurnt, withdrawAmount) = _executeWithdrawalWithETH(
+      request,
+      withdrawAmount,
+      currentTime
+    );
 
     emit RequestProcessed(
       address(this),
@@ -1188,22 +1224,28 @@ contract EmberETHVault is
   }
 
   /**
-   * @notice Execute withdrawal with WETH unwrapping
+   * @notice Execute withdrawal with WETH unwrapping and fee calculation
    */
   function _executeWithdrawalWithETH(
     WithdrawalRequest memory request,
-    uint256 withdrawAmount
-  ) internal returns (bool cancelled, bool skipped, uint256 sharesBurnt, uint256 finalWithdrawAmount) {
+    uint256 withdrawAmount,
+    uint256 currentTime
+  )
+    internal
+    returns (bool cancelled, bool skipped, uint256 sharesBurnt, uint256 finalWithdrawAmount)
+  {
     Account storage accountState = accounts[request.owner];
-    
+
     // Check if cancelled
     (cancelled, ) = _checkCancellation(request.sequenceNumber, accountState);
-    
+
     // Check if should skip
     skipped = _shouldSkipRequest(request, cancelled, withdrawAmount);
 
-    uint256 indexToUse = cancelled ? _findCancelIndex(request.sequenceNumber, accountState) : type(uint256).max;
-    
+    uint256 indexToUse = cancelled
+      ? _findCancelIndex(request.sequenceNumber, accountState)
+      : type(uint256).max;
+
     if (skipped) {
       if (!cancelled) {
         indexToUse = accountState.cancelWithdrawRequestSequenceNumbers.length;
@@ -1212,6 +1254,23 @@ contract EmberETHVault is
       finalWithdrawAmount = 0;
       _transfer(address(this), request.owner, request.shares);
     } else {
+      // Calculate withdrawal fees via validator
+      if (address(vaultValidator) != address(0)) {
+        (uint256 permanentFeeCharged, uint256 timeBasedFeeCharged) = vaultValidator
+          .calculateWithdrawalFees(address(this), request.owner, withdrawAmount, currentTime);
+        uint256 totalFee = permanentFeeCharged + timeBasedFeeCharged;
+        if (totalFee > 0) {
+          withdrawAmount -= totalFee;
+          emit WithdrawalFeeCharged(
+            address(this),
+            request.owner,
+            request.sequenceNumber,
+            permanentFeeCharged,
+            timeBasedFeeCharged
+          );
+        }
+      }
+
       _burn(address(this), request.shares);
       sharesBurnt = request.shares;
       finalWithdrawAmount = withdrawAmount;
@@ -1222,7 +1281,7 @@ contract EmberETHVault is
       IWETH(asset()).withdraw(withdrawAmount);
 
       // Send ETH to receiver
-      (bool success, ) = request.receiver.call{value: withdrawAmount}("");
+      (bool success, ) = request.receiver.call{ value: withdrawAmount }("");
       if (!success) revert ETHTransferFailed();
     }
 
@@ -1238,7 +1297,7 @@ contract EmberETHVault is
   ) internal view returns (bool isCancelled, uint256 cancelIndex) {
     uint256[] storage cancelSeqNums = accountState.cancelWithdrawRequestSequenceNumbers;
     cancelIndex = type(uint256).max;
-    
+
     for (uint256 i = 0; i < cancelSeqNums.length; ) {
       if (cancelSeqNums[i] == requestSeqNum) {
         return (true, i);
@@ -1258,7 +1317,7 @@ contract EmberETHVault is
     Account storage accountState
   ) internal view returns (uint256) {
     uint256[] storage cancelSeqNums = accountState.cancelWithdrawRequestSequenceNumbers;
-    
+
     for (uint256 i = 0; i < cancelSeqNums.length; ) {
       if (cancelSeqNums[i] == requestSeqNum) {
         return i;
@@ -1279,10 +1338,11 @@ contract EmberETHVault is
     uint256 withdrawAmount
   ) internal view returns (bool) {
     if (isCancelled || withdrawAmount == 0) return true;
-    
+
     IEmberProtocolConfig configProxy = protocolConfig;
-    return configProxy.isAccountBlacklisted(request.owner) || 
-           configProxy.isAccountBlacklisted(request.receiver);
+    return
+      configProxy.isAccountBlacklisted(request.owner) ||
+      configProxy.isAccountBlacklisted(request.receiver);
   }
 
   /**
@@ -1369,9 +1429,7 @@ contract EmberETHVault is
 
     uint256 newBalance = IERC20(asset()).balanceOf(address(this));
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultWithdrawalWithoutRedeemingShares(
       address(this),
@@ -1425,9 +1483,7 @@ contract EmberETHVault is
     rate.value = newRate;
     rate.lastUpdatedAt = currentTime;
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
     emit VaultRateUpdated(address(this), previousRate, newRate, currentTime, sequenceNumber);
   }
 
@@ -1458,9 +1514,7 @@ contract EmberETHVault is
     // Transfer WETH to platform fee recipient (NOT unwrapped)
     IERC20(asset()).safeTransfer(feeRecipient, amount);
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultPlatformFeeCollected(
       address(this),
@@ -1496,7 +1550,7 @@ contract EmberETHVault is
 
     if (accruedFee > 0) {
       platformFee.accrued += accruedFee;
-      
+
       unchecked {
         sequenceNumber++;
       }
@@ -1592,7 +1646,7 @@ contract EmberETHVault is
    * @notice Get vault version
    */
   function version() external pure virtual returns (string memory) {
-    return "v1.0.0-eth";
+    return "v2.0.0-eth";
   }
 
   /**
@@ -1623,11 +1677,17 @@ contract EmberETHVault is
   /**
    * @notice Get account info
    */
-  function getAccountInfo(address account) external view returns (
-    uint256 totalPendingShares,
-    uint256[] memory pendingRequestIds,
-    uint256[] memory cancelledRequestIds
-  ) {
+  function getAccountInfo(
+    address account
+  )
+    external
+    view
+    returns (
+      uint256 totalPendingShares,
+      uint256[] memory pendingRequestIds,
+      uint256[] memory cancelledRequestIds
+    )
+  {
     Account storage accountState = accounts[account];
     return (
       accountState.totalPendingWithdrawalShares,
@@ -1654,13 +1714,21 @@ contract EmberETHVault is
     return block.timestamp * 1000;
   }
 
+  function _incrementSequence() internal {
+    unchecked {
+      sequenceNumber++;
+    }
+  }
+
   /**
    * @notice Verify an address is a WETH contract (symbol = "WETH" and implements IWETH)
    */
   function _isWETH(address token) internal returns (bool) {
     try IERC20Metadata(token).symbol() returns (string memory symbol) {
       if (keccak256(bytes(symbol)) == WETH_SYMBOL_HASH) {
-        try IWETH(token).withdraw(0) { return true; } catch {}
+        try IWETH(token).withdraw(0) {
+          return true;
+        } catch {}
       }
     } catch {}
     return false;
@@ -1671,8 +1739,11 @@ contract EmberETHVault is
    */
   function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
+  /// @notice Validator contract for withdrawal fees and deposit allow lists
+  IEmberVaultValidator public vaultValidator;
+
   /**
    * @dev Reserved storage gap for future upgrades
    */
-  uint256[50] private __gap;
+  uint256[49] private __gap;
 }

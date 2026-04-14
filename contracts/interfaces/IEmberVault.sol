@@ -9,6 +9,8 @@
 
 pragma solidity ^0.8.22;
 
+import "./IEmberVaultValidator.sol";
+
 /// @title Ember Vault Interface
 /// @notice Interface for EmberVault functions called by EmberProtocolConfig
 interface IEmberVault {
@@ -47,6 +49,8 @@ interface IEmberVault {
   function totalAssets() external view returns (uint256);
   function rate() external view returns (Rate memory);
   function platformFee() external view returns (PlatformFee memory);
+  function sequenceNumber() external view returns (uint256);
+  function vaultValidator() external view returns (IEmberVaultValidator);
 
   // Setter functions called by EmberProtocolConfig
   // Each function receives the original caller for authorization verification
@@ -57,6 +61,9 @@ interface IEmberVault {
 
   /// @notice Sets the vault rate update interval (requires admin role)
   function setRateUpdateInterval(address caller, uint256 newInterval) external;
+
+  /// @notice Sets the maximum allowed rate change per update (requires admin role)
+  function setMaxRateChangePerUpdate(address caller, uint256 newMaxRateChangePerUpdate) external;
 
   /// @notice Sets the vault admin (requires owner role)
   function setAdmin(address caller, address newAdmin) external;
@@ -81,4 +88,7 @@ interface IEmberVault {
 
   /// @notice Sets the pause status for a specific operation (requires admin role)
   function setPausedStatus(address caller, string calldata operation, bool paused) external;
+
+  /// @notice Sets the vault validator contract address (requires admin role)
+  function setVaultValidator(address caller, address _validator) external;
 }

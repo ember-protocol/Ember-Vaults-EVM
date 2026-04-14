@@ -1,0 +1,145 @@
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "contracts": {
+    "protocolConfig": {
+      "proxyAddress": "0x196DB06d49ADC9F6f4dB3548970d94A7E43f68F9",
+      "implementationAddress": "0x5C8813931Cf577c0cAD0322dfa6E6cbC03bE5129",
+      "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+      "version": "v1.2.0",
+      "deployedAt": "2026-04-03T16:52:16.882Z",
+      "deploymentBlockNumber": 10582787,
+      "upgradedAt": "2026-04-03T17:03:41.087Z",
+      "upgradedInBlock": 10582841
+    },
+    "depositTokens": {
+      "pUSDC": {
+        "proxyAddress": "0x91c11E7Ded0A9d7426158CDE11b8485019d223E9",
+        "implementationAddress": "0x087F5D9648e25e2031d31C900ACDb9867CDd3D40",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Pharos USDC",
+        "symbol": "pUSDC",
+        "decimals": 6,
+        "version": "1",
+        "deployedAt": "2026-04-03T16:55:30.853Z",
+        "deploymentBlockNumber": 10582803
+      },
+      "WETH": {
+        "address": "0x0180bA2A01a7ED09a977B9893C0B903a70554259",
+        "name": "Wrapped Ether",
+        "symbol": "WETH",
+        "decimals": "18",
+        "isMock": true,
+        "supportsPermit": true,
+        "deployedAt": "2026-04-03T17:28:40.964Z",
+        "deploymentBlockNumber": 10582958
+      },
+      "STCK": {
+        "proxyAddress": "0x6A6f0fe52e08A5C11e5982838c934bB7Fc37464f",
+        "implementationAddress": "0x087F5D9648e25e2031d31C900ACDb9867CDd3D40",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Stack Coin",
+        "symbol": "STCK",
+        "decimals": 6,
+        "version": "1",
+        "deployedAt": "2026-04-03T18:04:16.106Z",
+        "deploymentBlockNumber": 10583134
+      }
+    },
+    "vaults": {
+      "emberPusdtVault": {
+        "proxyAddress": "0xDDBBF7896fb6D7CD5181e7179cd84CfdaF4235c5",
+        "implementationAddress": "0xC926A1D8694D4718D484C07eADFa721Aa4fEe219",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Ember pUSDT Vault",
+        "receiptTokenSymbol": "epUSDT",
+        "collateralToken": "0x85B3dc98530Aeab949b1Cb17Cf6e5FC09531845c",
+        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+        "protocolConfig": "0x196DB06d49ADC9F6f4dB3548970d94A7E43f68F9",
+        "maxTVL": "2000000000000",
+        "version": "v1.1.2",
+        "deployedAt": "2026-04-03T16:58:06.669Z",
+        "deploymentBlockNumber": 10582815,
+        "upgradedAt": "2026-04-03T17:06:15.420Z",
+        "upgradedInBlock": 10582854
+      },
+      "emberStackVault": {
+        "proxyAddress": "0x9Db49484113BF8012F4f6ff47aB7872cB2FC35cB",
+        "implementationAddress": "0xe6A9D11546736415F18beC772bB7759e75846643",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Ember Stack Vault",
+        "receiptTokenSymbol": "eSTCK",
+        "collateralToken": "0x6A6f0fe52e08A5C11e5982838c934bB7Fc37464f",
+        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+        "protocolConfig": "0x196DB06d49ADC9F6f4dB3548970d94A7E43f68F9",
+        "maxTVL": "2000000000000",
+        "version": "v1.1.2",
+        "deployedAt": "2026-04-03T18:05:21.036Z",
+        "deploymentBlockNumber": 10583139
+      }
+    },
+    "oftAdapters": {
+      "emberPusdtVaultOFTAdapter": {
+        "address": "0x98169406cD631e2b391EBf638F2387fD2048B765",
+        "contractName": "EmberVaultMintBurnOFTAdapter",
+        "vaultKey": "emberPusdtVault",
+        "vaultAddress": "0xDDBBF7896fb6D7CD5181e7179cd84CfdaF4235c5",
+        "receiptTokenSymbol": "epUSDT",
+        "lzEndpointAddress": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+        "delegate": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "owner": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "decimalConversionRate": "1000000000000",
+        "deployedAt": "2026-04-03T17:07:16.750Z",
+        "deploymentBlockNumber": 10582858,
+        "peers": {}
+      }
+    },
+    "ethVaults": {
+      "emberPusdtVault": {
+        "proxyAddress": "0x7Dd2c2343fF113E6c08190686ae3BF78516d1A74",
+        "implementationAddress": "0x1c7B9637F6e17705122901CeaEd5971B27E874EC",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Ember pUSDT Vault",
+        "receiptTokenSymbol": "epETHu",
+        "collateralToken": "0x0180bA2A01a7ED09a977B9893C0B903a70554259",
+        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+        "protocolConfig": "0x196DB06d49ADC9F6f4dB3548970d94A7E43f68F9",
+        "maxTVL": "2000000000000",
+        "version": "v1.1.2-eth",
+        "deployedAt": "2026-04-03T17:37:54.717Z",
+        "deploymentBlockNumber": 10583004
+      },
+      "emberEthUvault": {
+        "proxyAddress": "0xc43835adaf228a801e7fE6f20A17d31275f158bb",
+        "implementationAddress": "0x1c7B9637F6e17705122901CeaEd5971B27E874EC",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Ember ETH uVault",
+        "receiptTokenSymbol": "epETHu",
+        "collateralToken": "0x0180bA2A01a7ED09a977B9893C0B903a70554259",
+        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+        "protocolConfig": "0x196DB06d49ADC9F6f4dB3548970d94A7E43f68F9",
+        "maxTVL": "2000000000000",
+        "version": "v1.1.2-eth",
+        "deployedAt": "2026-04-03T18:02:20.049Z",
+        "deploymentBlockNumber": 10583124
+      }
+    },
+    "vaultValidator": {
+      "proxyAddress": "0x1a563E54B6b684fC523E2D306F405B6ec4Bd41fA",
+      "implementationAddress": "0x22CD5Ac63BbDff6705b59BfaA5a92a60A1565731",
+      "protocolConfigAddress": "0x196DB06d49ADC9F6f4dB3548970d94A7E43f68F9",
+      "ownerAddress": "0x71562b71999873DB5b286dF957af199Ec94617F7",
+      "version": "v1.0.0",
+      "deployedAt": "2026-04-10T14:34:50.480Z",
+      "deploymentBlockNumber": 10630704
+    }
+  }
+}

@@ -15,6 +15,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
 import "./interfaces/IEmberVault.sol";
+import "./interfaces/IEmberVaultValidator.sol";
 
 /// @title Ember Protocol Configuration
 /// @notice Stores configuration parameters that govern the vault system and manages vault admin operations
@@ -210,6 +211,21 @@ contract EmberProtocolConfig is
     IEmberVault(vault).setRateUpdateInterval(msg.sender, newInterval);
   }
 
+  /// @notice Changes the vault max rate change per update
+  /// @dev Validates parameters, then forwards to vault which verifies caller is admin
+  /// @param vault The vault address
+  /// @param newMaxRateChangePerUpdate The new max rate change allowed per update (1e18 = 100%)
+  function updateVaultMaxRateChangePerUpdate(
+    address vault,
+    uint256 newMaxRateChangePerUpdate
+  ) external nonReentrant {
+    if (newMaxRateChangePerUpdate == 0) revert InvalidRate();
+    if (newMaxRateChangePerUpdate == IEmberVault(vault).rate().maxRateChangePerUpdate)
+      revert SameValue();
+
+    IEmberVault(vault).setMaxRateChangePerUpdate(msg.sender, newMaxRateChangePerUpdate);
+  }
+
   /// @notice Changes the vault admin
   /// @dev Validates parameters, then forwards to vault which verifies caller is owner
   /// @param vault The vault address
@@ -263,7 +279,7 @@ contract EmberProtocolConfig is
 
   /// @notice Updates the vault fee percentage
   /// @dev Validates parameters, then forwards to vault which verifies caller is admin
-  /// @param vault The vault address  
+  /// @param vault The vault address
   /// @param newFeePercentage The new fee percentage
   function updateVaultFeePercentage(address vault, uint256 newFeePercentage) external nonReentrant {
     if (newFeePercentage > protocolConfig.maxFeePercentage) {
@@ -347,6 +363,82 @@ contract EmberProtocolConfig is
   }
 
   // ============================================
+  // Withdrawal Fee & Deposit Allow List Functions (via Validator)
+  // ============================================
+
+  /// @notice Sets the vault validator contract address for a vault
+  function setVaultValidator(address vault, address validator) external nonReentrant {
+    IEmberVault(vault).setVaultValidator(msg.sender, validator);
+  }
+
+  function setVaultDepositAllowList(
+    address vault,
+    address user,
+    bool status
+  ) external nonReentrant {
+    if (user == address(0)) revert ZeroAddress();
+    IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
+    if (validator.depositAllowList(vault, user) == status) revert SameValue();
+
+    if (status) {
+      IEmberVault.Roles memory vaultRoles = IEmberVault(vault).roles();
+      if (user == vaultRoles.admin || user == vaultRoles.operator || user == vaultRoles.rateManager)
+        revert InvalidValue();
+      if (blacklistedAccounts[user]) revert Blacklisted();
+    }
+
+    validator.setDepositAllowListStatus(msg.sender, vault, user, status);
+  }
+
+  function setVaultFeeExemptionList(
+    address vault,
+    address user,
+    bool status
+  ) external nonReentrant {
+    if (user == address(0)) revert ZeroAddress();
+    IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
+    if (validator.feeExemptAccounts(vault, user) == status) revert SameValue();
+
+    if (status) {
+      IEmberVault.Roles memory vaultRoles = IEmberVault(vault).roles();
+      if (user == vaultRoles.admin || user == vaultRoles.operator || user == vaultRoles.rateManager)
+        revert InvalidValue();
+      if (blacklistedAccounts[user]) revert Blacklisted();
+    }
+
+    validator.setFeeExemptionListStatus(msg.sender, vault, user, status);
+  }
+
+  function updateVaultPermanentFeePercentage(
+    address vault,
+    uint256 newPercentage
+  ) external nonReentrant {
+    if (newPercentage >= 1e18) revert InvalidValue();
+    IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
+    if (newPercentage == validator.withdrawalFee(vault).permanentFeePercentage) revert SameValue();
+    validator.setPermanentFeePercentage(msg.sender, vault, newPercentage);
+  }
+
+  function updateVaultTimeBasedFeePercentage(
+    address vault,
+    uint256 newPercentage
+  ) external nonReentrant {
+    if (newPercentage >= 1e18) revert InvalidValue();
+    IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
+    if (newPercentage == validator.withdrawalFee(vault).timeBasedFeePercentage) revert SameValue();
+    validator.setTimeBasedFeePercentage(msg.sender, vault, newPercentage);
+  }
+
+  function updateVaultTimeBasedFeeThreshold(
+    address vault,
+    uint256 newThreshold
+  ) external nonReentrant {
+    IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
+    if (newThreshold == validator.withdrawalFee(vault).timeBasedFeeThreshold) revert SameValue();
+    validator.setTimeBasedFeeThreshold(msg.sender, vault, newThreshold);
+  }
+
+  // ============================================
   // Getter Functions
   // ============================================
 
@@ -394,7 +486,7 @@ contract EmberProtocolConfig is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v1.1.1";
+    return "v2.0.0";
   }
 
   /// @notice Verifies that the protocol is not paused

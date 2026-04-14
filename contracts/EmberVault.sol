@@ -19,6 +19,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
+import "./interfaces/IEmberVaultValidator.sol";
 import "./libraries/Math.sol"; // FixedPointMath library
 
 // Custom errors for gas optimization (errors not in IEmberProtocolConfig)
@@ -180,12 +181,15 @@ contract EmberVault is
   /// @notice mapping of user addresses to their account state
   mapping(address => Account) public accounts;
 
+  /// @notice Validator contract for withdrawal fees and deposit allow lists
+  IEmberVaultValidator public vaultValidator;
+
   /**
    * @dev Reserved storage gap for future upgrades.
    * This allows adding new state variables without shifting storage slots.
    * See: https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
    */
-  uint256[50] private __gap;
+  uint256[49] private __gap;
 
   // Events
   /// @notice Emitted when a vault is created
@@ -231,6 +235,15 @@ contract EmberVault is
     address indexed vault,
     uint256 previousInterval,
     uint256 newInterval,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  /// @notice Emitted when vault max rate change per update is changed
+  event VaultMaxRateChangePerUpdateChanged(
+    address indexed vault,
+    uint256 previousMaxRateChangePerUpdate,
+    uint256 newMaxRateChangePerUpdate,
     uint256 timestamp,
     uint256 sequenceNumber
   );
@@ -385,6 +398,15 @@ contract EmberVault is
     uint256 requestSequenceNumber
   );
 
+  /// @notice Emitted alongside RequestProcessed when withdrawal fees are charged
+  event WithdrawalFeeCharged(
+    address indexed vault,
+    address indexed owner,
+    uint256 requestSequenceNumber,
+    uint256 permanentFeeCharged,
+    uint256 timeBasedFeeCharged
+  );
+
   /// @notice Emitted when withdrawal requests are processed (summary event)
   event ProcessRequestsSummary(
     address indexed vault,
@@ -474,11 +496,10 @@ contract EmberVault is
 
     protocolConfig = IEmberProtocolConfig(_protocolConfig);
 
-
     if (bytes(params.name).length == 0) revert InvalidValue();
     if (params.minWithdrawableShares == 0) revert ZeroAmount();
     if (params.maxTVL == 0) revert ZeroAmount();
-    
+
     _vaultName = params.name;
     maxTVL = params.maxTVL;
     minWithdrawableShares = params.minWithdrawableShares;
@@ -556,9 +577,7 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     uint256 previousMaxTVL = maxTVL;
     maxTVL = newMaxTVL;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultMaxTVLUpdated(
       address(this),
@@ -579,14 +598,33 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     uint256 previousInterval = rate.rateUpdateInterval;
     rate.rateUpdateInterval = newInterval;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultRateUpdateIntervalChanged(
       address(this),
       previousInterval,
       newInterval,
+      _getChainTimestampMs(),
+      sequenceNumber
+    );
+  }
+
+  /// @notice Sets the vault max rate change per update
+  /// @dev Only callable by protocol config, caller must be admin
+  /// @param caller The original caller address (must be admin)
+  /// @param newMaxRateChangePerUpdate The new max rate change allowed per update
+  function setMaxRateChangePerUpdate(
+    address caller,
+    uint256 newMaxRateChangePerUpdate
+  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    uint256 previousMaxRateChangePerUpdate = rate.maxRateChangePerUpdate;
+    rate.maxRateChangePerUpdate = newMaxRateChangePerUpdate;
+    _incrementSequence();
+
+    emit VaultMaxRateChangePerUpdateChanged(
+      address(this),
+      previousMaxRateChangePerUpdate,
+      newMaxRateChangePerUpdate,
       _getChainTimestampMs(),
       sequenceNumber
     );
@@ -602,9 +640,7 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyOwnerRole(caller) {
     address previousAdmin = roles.admin;
     roles.admin = newAdmin;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultAdminChanged(
       address(this),
@@ -625,9 +661,7 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     address previousOperator = roles.operator;
     roles.operator = newOperator;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultOperatorChanged(
       address(this),
@@ -648,9 +682,7 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     address previousRateManager = roles.rateManager;
     roles.rateManager = newRateManager;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultRateManagerUpdated(
       address(this),
@@ -671,9 +703,7 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     uint256 previousFeePercentage = platformFee.platformFeePercentage;
     platformFee.platformFeePercentage = newFeePercentage;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultFeePercentageUpdated(
       address(this),
@@ -694,9 +724,7 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     string memory previousName = _vaultName;
     _vaultName = newName;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultNameUpdated(
       address(this),
@@ -717,9 +745,7 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     uint256 previousMinWithdrawableShares = minWithdrawableShares;
     minWithdrawableShares = newMinWithdrawableShares;
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     emit VaultMinWithdrawableSharesUpdated(
       address(this),
@@ -742,9 +768,7 @@ contract EmberVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     subAccounts[account] = isSubAccount;
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
     emit VaultSubAccountUpdated(
       address(this),
       account,
@@ -768,7 +792,6 @@ contract EmberVault is
 
     // Charge accrued platform fees
     _chargeAccruedPlatformFees();
-
 
     uint256 currentTime = _getChainTimestampMs();
     uint256 lastUpdatedAt = rate.lastUpdatedAt;
@@ -795,10 +818,7 @@ contract EmberVault is
     rate.value = newRate;
     rate.lastUpdatedAt = currentTime;
 
-
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
     emit VaultRateUpdated(address(this), previousRate, newRate, currentTime, sequenceNumber);
   }
 
@@ -835,7 +855,7 @@ contract EmberVault is
     IERC20(asset()).safeTransfer(recipient, amount);
 
     // Increment sequence number
-    sequenceNumber++;
+    _incrementSequence();
 
     uint256 currentTime = _getChainTimestampMs();
 
@@ -884,9 +904,7 @@ contract EmberVault is
 
     if (!statusChanged) revert SameValue();
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
     emit VaultPauseStatusUpdated(
       address(this),
       operation,
@@ -894,6 +912,15 @@ contract EmberVault is
       _getChainTimestampMs(),
       sequenceNumber
     );
+  }
+
+  /// @notice Sets the vault validator contract address
+  /// @dev Only callable by protocol config, caller must be admin
+  function setVaultValidator(
+    address caller,
+    address _validator
+  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    vaultValidator = IEmberVaultValidator(_validator);
   }
 
   /// @notice Allows a user to redeem shares of a vault and receive underlying assets.
@@ -933,9 +960,7 @@ contract EmberVault is
     uint256 estimatedWithdrawAmount = convertToAssets(shares);
 
     // Increment the sequence number
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     uint256 currentTime = _getChainTimestampMs();
 
@@ -1057,9 +1082,7 @@ contract EmberVault is
     uint256 newBalance = IERC20(asset()).balanceOf(address(this));
 
     // Increment sequence number
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     uint256 currentTime = _getChainTimestampMs();
     uint256 currentSequenceNumber = sequenceNumber;
@@ -1090,9 +1113,7 @@ contract EmberVault is
     if (numRequests == 0) revert ZeroAmount();
 
     // Increment sequence number
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     // Cache storage variables
     uint256 startIndex = withdrawalQueueStartIndex;
@@ -1134,7 +1155,7 @@ contract EmberVault is
         if (cancelled) counters[4]++; // requestsCancelled
       }
     }
-    
+
     // Reset queue if empty (prevents unbounded growth)
     if (startIndex >= queueLength) {
       // Queue is empty - reset everything
@@ -1185,7 +1206,7 @@ contract EmberVault is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v1.1.1";
+    return "v2.0.0";
   }
 
   /// @notice Get the vault name (legacy function for backwards compatibility)
@@ -1457,6 +1478,13 @@ contract EmberVault is
     return block.timestamp * 1000;
   }
 
+  /// @notice Internal helper to increment the sequence number
+  function _incrementSequence() internal {
+    unchecked {
+      sequenceNumber++;
+    }
+  }
+
   /**
    * @dev Function that authorizes an upgrade to a new implementation.
    *      Authorization is handled by the onlyOwner modifier.
@@ -1523,8 +1551,8 @@ contract EmberVault is
     unchecked {
       newAccrued = platformFee.accrued + feeAmount;
       platformFee.accrued = newAccrued;
-      sequenceNumber++;
     }
+    _incrementSequence();
     platformFee.lastChargedAt = currentTime;
 
     uint256 currentSequenceNumber = sequenceNumber;
@@ -1546,6 +1574,9 @@ contract EmberVault is
     if (pauseStatus.deposits) revert OperationPaused();
     if (configProxy.isAccountBlacklisted(depositor)) revert Blacklisted();
     if (subAccounts[depositor]) revert InvalidValue();
+    if (address(vaultValidator) != address(0)) {
+      vaultValidator.validateDeposit(address(this), depositor);
+    }
   }
 
   /// @notice Internal helper that implements the core deposit logic
@@ -1591,11 +1622,15 @@ contract EmberVault is
     if (currentTVL > maxTVL) revert MaxTVLReached();
 
     // Increment sequence number
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     uint256 currentTime = _getChainTimestampMs();
+
+    // Record last deposit timestamp for time-based withdrawal fee calculation
+    if (address(vaultValidator) != address(0)) {
+      vaultValidator.recordDeposit(address(this), receiver, currentTime);
+    }
+
     uint256 currentSequenceNumber = sequenceNumber;
 
     emit VaultDeposit(
@@ -1638,19 +1673,23 @@ contract EmberVault is
     // Calculate assets required using rate-based conversion with ceiling rounding
     assets = _convertToAssets(shares, Math.Rounding.Ceil);
     if (assets == 0) revert ZeroAmount();
-    
+
     // Transfer collateral from user to vault using SafeERC20
     IERC20(asset()).safeTransferFrom(depositor, address(this), assets);
 
     _mint(receiver, shares);
     if (totalAssets() > maxTVL) revert MaxTVLReached();
 
-    unchecked {
-      sequenceNumber++;
-    }
+    _incrementSequence();
 
     uint256 totalShares = totalSupply();
     uint256 currentTime = _getChainTimestampMs();
+
+    // Record last deposit timestamp for time-based withdrawal fee calculation
+    if (address(vaultValidator) != address(0)) {
+      vaultValidator.recordDeposit(address(this), receiver, currentTime);
+    }
+
     uint256 currentSequenceNumber = sequenceNumber;
 
     emit VaultDeposit(
@@ -1663,7 +1702,7 @@ contract EmberVault is
       currentTime,
       currentSequenceNumber
     );
-    
+
     return assets;
   }
 
@@ -1788,6 +1827,9 @@ contract EmberVault is
     bool receiverBlacklisted = configProxy.isAccountBlacklisted(request.receiver);
     bool shouldSkip = ownerBlacklisted || receiverBlacklisted || isCancelled || withdrawAmount == 0;
 
+    uint256 permanentFeeCharged = 0;
+    uint256 timeBasedFeeCharged = 0;
+
     if (shouldSkip) {
       // If skipped due to blacklisting or zero amount (not cancellation), set index to numCancelledRequests
       if (!isCancelled) {
@@ -1802,6 +1844,20 @@ contract EmberVault is
       _transfer(address(this), request.owner, request.shares);
     } else {
       skipped = false;
+
+      // Calculate withdrawal fees via validator
+      if (address(vaultValidator) != address(0)) {
+        (permanentFeeCharged, timeBasedFeeCharged) = vaultValidator.calculateWithdrawalFees(
+          address(this),
+          request.owner,
+          withdrawAmount,
+          currentTime
+        );
+        uint256 totalFee = permanentFeeCharged + timeBasedFeeCharged;
+        if (totalFee > 0) {
+          withdrawAmount -= totalFee;
+        }
+      }
 
       // Burn shares (they are already in the vault from redeemShares)
       _burn(address(this), request.shares);
@@ -1837,5 +1893,15 @@ contract EmberVault is
       currentSequenceNumber,
       requestSeqNum
     );
+
+    if (permanentFeeCharged > 0 || timeBasedFeeCharged > 0) {
+      emit WithdrawalFeeCharged(
+        address(this),
+        request.owner,
+        requestSeqNum,
+        permanentFeeCharged,
+        timeBasedFeeCharged
+      );
+    }
   }
 }

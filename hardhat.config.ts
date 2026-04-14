@@ -14,7 +14,7 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 100, // Reduced for smaller bytecode size
+        runs: 100,
       },
       viaIR: true,
     },
@@ -50,6 +50,12 @@ const config: HardhatUserConfig = {
       url: process.env.SEPOLIA_RPC_URL || "",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11155111,
+    },
+    atlantic: {
+      url: process.env.PHAROS_TESTNET_RPC_URL || "",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 688689,
+      gasPrice: Number(process.env.PHAROS_TESTNET_GAS_PRICE_GWEI || "1") * 1_000_000_000,
     },
   },
   paths: {

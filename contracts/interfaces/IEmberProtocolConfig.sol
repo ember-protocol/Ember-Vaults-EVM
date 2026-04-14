@@ -42,12 +42,19 @@ interface IEmberProtocolConfig {
   // Vault admin functions
   function updateVaultMaxTVL(address vault, uint256 newMaxTVL) external;
   function updateVaultRateUpdateInterval(address vault, uint256 newInterval) external;
+  function updateVaultMaxRateChangePerUpdate(
+    address vault,
+    uint256 newMaxRateChangePerUpdate
+  ) external;
   function updateVaultAdmin(address vault, address newAdmin) external;
   function updateVaultOperator(address vault, address newOperator) external;
   function updateVaultRateManager(address vault, address newRateManager) external;
   function updateVaultFeePercentage(address vault, uint256 newFeePercentage) external;
   function updateVaultName(address vault, string calldata newName) external;
-  function updateVaultMinWithdrawableShares(address vault, uint256 newMinWithdrawableShares) external;
+  function updateVaultMinWithdrawableShares(
+    address vault,
+    uint256 newMinWithdrawableShares
+  ) external;
   function setVaultSubAccount(address vault, address account, bool isSubAccount) external;
   function setVaultPausedStatus(address vault, string calldata operation, bool paused) external;
 
