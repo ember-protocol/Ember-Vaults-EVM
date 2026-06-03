@@ -57,22 +57,18 @@
     },
     {
       "address": "0x1B26Af61F71573Bd8B13E0c6787912aAe42Ef6A0",
-      "txHash": "0x8ed2753f569924e3ff3f4ed18812798a7a394d1974c3c466f646cd1ed6109f03",
-      "kind": "uups"
-    },
-    {
-      "address": "0xf01a741aAa039627CEf3d3F1e4f680A488698F35",
-      "txHash": "0x821ab1f399250f46b0d15f20f2063fe355ccf2359d5303eb0a7f9a58e577dbd2",
-      "kind": "uups"
-    },
-    {
-      "address": "0xc3A8730340C59ada20780867F95FA8D87c21a8DF",
-      "txHash": "0x3a0eae88d14f72564cad98f66afd72f04701b0acc39747da0584ca76c14aaeed",
       "kind": "uups"
     },
     {
       "address": "0xB539D626E7288e1E3c65DE8B485442a7fA551B1C",
-      "txHash": "0x675f2637e8dcfffe3fcbf4b02ef001d374b02099f68782ca620bc5b84a1c5e0f",
+      "kind": "uups"
+    },
+    {
+      "address": "0xf01a741aAa039627CEf3d3F1e4f680A488698F35",
+      "kind": "uups"
+    },
+    {
+      "address": "0xc3A8730340C59ada20780867F95FA8D87c21a8DF",
       "kind": "uups"
     }
   ],
@@ -3491,6 +3487,1580 @@
               "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
               "offset": 0,
               "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "4473f1e1c30811827b18bbdc4260dbdc3de77e0a93b5883992ac3484dffe2fcd": {
+      "address": "0xb0b4b9d7F51AE0fb0931AfAF1D23511797F3a41A",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "protocolConfig",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_struct(ProtocolConfig)18896_storage",
+            "contract": "EmberProtocolConfig",
+            "src": "contracts/EmberProtocolConfig.sol:50"
+          },
+          {
+            "label": "blacklistedAccounts",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "EmberProtocolConfig",
+            "src": "contracts/EmberProtocolConfig.sol:53"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "EmberProtocolConfig",
+            "src": "contracts/EmberProtocolConfig.sol:60"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)1800_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)1740_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)2528_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(ProtocolConfig)18896_storage": {
+            "label": "struct EmberProtocolConfig.ProtocolConfig",
+            "members": [
+              {
+                "label": "pause",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "platformFeeRecipient",
+                "type": "t_address",
+                "offset": 1,
+                "slot": "0"
+              },
+              {
+                "label": "minRate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "maxRate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "defaultRate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "minRateInterval",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "maxRateInterval",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "maxFeePercentage",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "6"
+              }
+            ],
+            "numberOfBytes": "224"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "fcdaa3722d076079b6457f490a74ecacd947205a82a99fcdb5533676b69ef67b": {
+      "address": "0x1Fec355130943AbED730799Ed15fE893958AaA24",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "_withdrawalFees",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_mapping(t_address,t_struct(WithdrawalFee)27204_storage)",
+            "contract": "EmberVaultValidator",
+            "src": "contracts/EmberVaultValidator.sol:23"
+          },
+          {
+            "label": "_feeExemptAccounts",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_bool))",
+            "contract": "EmberVaultValidator",
+            "src": "contracts/EmberVaultValidator.sol:24"
+          },
+          {
+            "label": "_depositAllowList",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_bool))",
+            "contract": "EmberVaultValidator",
+            "src": "contracts/EmberVaultValidator.sol:25"
+          },
+          {
+            "label": "_lastDepositTimestamp",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "contract": "EmberVaultValidator",
+            "src": "contracts/EmberVaultValidator.sol:26"
+          },
+          {
+            "label": "_depositAllowListCount",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "EmberVaultValidator",
+            "src": "contracts/EmberVaultValidator.sol:27"
+          },
+          {
+            "label": "protocolConfig",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_contract(IEmberProtocolConfig)26903",
+            "contract": "EmberVaultValidator",
+            "src": "contracts/EmberVaultValidator.sol:30"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_array(t_uint256)43_storage",
+            "contract": "EmberVaultValidator",
+            "src": "contracts/EmberVaultValidator.sol:265"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)1800_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)1740_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)2528_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_uint256)43_storage": {
+            "label": "uint256[43]",
+            "numberOfBytes": "1376"
+          },
+          "t_contract(IEmberProtocolConfig)26903": {
+            "label": "contract IEmberProtocolConfig",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_bool))": {
+            "label": "mapping(address => mapping(address => bool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(WithdrawalFee)27204_storage)": {
+            "label": "mapping(address => struct IEmberVaultValidator.WithdrawalFee)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(WithdrawalFee)27204_storage": {
+            "label": "struct IEmberVaultValidator.WithdrawalFee",
+            "members": [
+              {
+                "label": "permanentFeePercentage",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "timeBasedFeePercentage",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "timeBasedFeeThreshold",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "a58990a54fca9ea451698b029f64ec637bb966f0220957f9e8325927b2754e17": {
+      "address": "0xeb04b9Af47DbcA4347BCAe3d044990008C7cb4d1",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "_vaultName",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_string_storage",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:154"
+          },
+          {
+            "label": "maxTVL",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:157"
+          },
+          {
+            "label": "minWithdrawableShares",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:160"
+          },
+          {
+            "label": "subAccounts",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:163"
+          },
+          {
+            "label": "platformFee",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_struct(PlatformFee)7442_storage",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:165"
+          },
+          {
+            "label": "rate",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_struct(Rate)7452_storage",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:167"
+          },
+          {
+            "label": "roles",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_struct(Roles)7460_storage",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:169"
+          },
+          {
+            "label": "protocolConfig",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_contract(IEmberProtocolConfig)12060",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:172"
+          },
+          {
+            "label": "pauseStatus",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_struct(PauseStatus)7468_storage",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:175"
+          },
+          {
+            "label": "sequenceNumber",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_uint256",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:178"
+          },
+          {
+            "label": "pendingWithdrawals",
+            "offset": 0,
+            "slot": "17",
+            "type": "t_array(t_struct(WithdrawalRequest)7482_storage)dyn_storage",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:181"
+          },
+          {
+            "label": "withdrawalQueueStartIndex",
+            "offset": 0,
+            "slot": "18",
+            "type": "t_uint256",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:184"
+          },
+          {
+            "label": "accounts",
+            "offset": 0,
+            "slot": "19",
+            "type": "t_mapping(t_address,t_struct(Account)7492_storage)",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:187"
+          },
+          {
+            "label": "bridgeAdapter",
+            "offset": 0,
+            "slot": "20",
+            "type": "t_address",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:190"
+          },
+          {
+            "label": "minBridgeAmount",
+            "offset": 0,
+            "slot": "21",
+            "type": "t_uint256",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:193"
+          },
+          {
+            "label": "maxBridgeAmount",
+            "offset": 0,
+            "slot": "22",
+            "type": "t_uint256",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:196"
+          },
+          {
+            "label": "vaultValidator",
+            "offset": 0,
+            "slot": "23",
+            "type": "t_contract(IEmberVaultValidator)12198",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:199"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "24",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "EmberVault",
+            "src": "contracts/EmberVault.sol:206"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(IERC20)1144": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(ERC20Storage)222_storage": {
+            "label": "struct ERC20Upgradeable.ERC20Storage",
+            "members": [
+              {
+                "label": "_balances",
+                "type": "t_mapping(t_address,t_uint256)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_allowances",
+                "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "_totalSupply",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "_name",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "_symbol",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(ERC4626Storage)406_storage": {
+            "label": "struct ERC4626Upgradeable.ERC4626Storage",
+            "members": [
+              {
+                "label": "_asset",
+                "type": "t_contract(IERC20)1144",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_underlyingDecimals",
+                "type": "t_uint8",
+                "offset": 20,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)671_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          },
+          "t_array(t_struct(WithdrawalRequest)7482_storage)dyn_storage": {
+            "label": "struct EmberVault.WithdrawalRequest[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IEmberProtocolConfig)12060": {
+            "label": "contract IEmberProtocolConfig",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IEmberVaultValidator)12198": {
+            "label": "contract IEmberVaultValidator",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Account)7492_storage)": {
+            "label": "mapping(address => struct EmberVault.Account)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Account)7492_storage": {
+            "label": "struct EmberVault.Account",
+            "members": [
+              {
+                "label": "totalPendingWithdrawalShares",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "pendingWithdrawalRequestSequenceNumbers",
+                "type": "t_array(t_uint256)dyn_storage",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "cancelWithdrawRequestSequenceNumbers",
+                "type": "t_array(t_uint256)dyn_storage",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(PauseStatus)7468_storage": {
+            "label": "struct EmberVault.PauseStatus",
+            "members": [
+              {
+                "label": "deposits",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "withdrawals",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "0"
+              },
+              {
+                "label": "privilegedOperations",
+                "type": "t_bool",
+                "offset": 2,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PlatformFee)7442_storage": {
+            "label": "struct EmberVault.PlatformFee",
+            "members": [
+              {
+                "label": "accrued",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "lastChargedAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "platformFeePercentage",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(Rate)7452_storage": {
+            "label": "struct EmberVault.Rate",
+            "members": [
+              {
+                "label": "value",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "maxRateChangePerUpdate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "rateUpdateInterval",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "lastUpdatedAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_struct(Roles)7460_storage": {
+            "label": "struct EmberVault.Roles",
+            "members": [
+              {
+                "label": "admin",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "operator",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "rateManager",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(WithdrawalRequest)7482_storage": {
+            "label": "struct EmberVault.WithdrawalRequest",
+            "members": [
+              {
+                "label": "owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "receiver",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "shares",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "estimatedWithdrawAmount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "sequenceNumber",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              }
+            ],
+            "numberOfBytes": "192"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ERC4626": [
+            {
+              "contract": "ERC4626Upgradeable",
+              "label": "_asset",
+              "type": "t_contract(IERC20)1144",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol:56",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "ERC4626Upgradeable",
+              "label": "_underlyingDecimals",
+              "type": "t_uint8",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol:57",
+              "offset": 20,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ERC20": [
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_balances",
+              "type": "t_mapping(t_address,t_uint256)",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:33",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_allowances",
+              "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:35",
+              "offset": 0,
+              "slot": "1"
+            },
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_totalSupply",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:37",
+              "offset": 0,
+              "slot": "2"
+            },
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_name",
+              "type": "t_string_storage",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:39",
+              "offset": 0,
+              "slot": "3"
+            },
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_symbol",
+              "type": "t_string_storage",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:40",
+              "offset": 0,
+              "slot": "4"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "a298c7ee131eaf6ebb90bfb47baa1631c7fef315008a70a322f52fe2222676ae": {
+      "address": "0xA34007eF7E844E7F13df325cCD0562b99A2a7bF9",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "_vaultName",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_string_storage",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:134"
+          },
+          {
+            "label": "maxTVL",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:135"
+          },
+          {
+            "label": "minWithdrawableShares",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:136"
+          },
+          {
+            "label": "subAccounts",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:137"
+          },
+          {
+            "label": "platformFee",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_struct(PlatformFee)14457_storage",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:139"
+          },
+          {
+            "label": "rate",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_struct(Rate)14466_storage",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:140"
+          },
+          {
+            "label": "roles",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_struct(Roles)14473_storage",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:141"
+          },
+          {
+            "label": "protocolConfig",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_contract(IEmberProtocolConfig)26903",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:142"
+          },
+          {
+            "label": "pauseStatus",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_struct(PauseStatus)14480_storage",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:143"
+          },
+          {
+            "label": "sequenceNumber",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_uint256",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:145"
+          },
+          {
+            "label": "pendingWithdrawals",
+            "offset": 0,
+            "slot": "17",
+            "type": "t_array(t_struct(WithdrawalRequest)14493_storage)dyn_storage",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:146"
+          },
+          {
+            "label": "withdrawalQueueStartIndex",
+            "offset": 0,
+            "slot": "18",
+            "type": "t_uint256",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:147"
+          },
+          {
+            "label": "accounts",
+            "offset": 0,
+            "slot": "19",
+            "type": "t_mapping(t_address,t_struct(Account)14502_storage)",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:148"
+          },
+          {
+            "label": "bridgeAdapter",
+            "offset": 0,
+            "slot": "20",
+            "type": "t_address",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:151"
+          },
+          {
+            "label": "minBridgeAmount",
+            "offset": 0,
+            "slot": "21",
+            "type": "t_uint256",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:154"
+          },
+          {
+            "label": "maxBridgeAmount",
+            "offset": 0,
+            "slot": "22",
+            "type": "t_uint256",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:157"
+          },
+          {
+            "label": "vaultValidator",
+            "offset": 0,
+            "slot": "23",
+            "type": "t_contract(IEmberVaultValidator)27330",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:1950"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "24",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "EmberETHVault",
+            "src": "contracts/EmberETHVault.sol:1955"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(IERC20)3331": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(ERC20Storage)1949_storage": {
+            "label": "struct ERC20Upgradeable.ERC20Storage",
+            "members": [
+              {
+                "label": "_balances",
+                "type": "t_mapping(t_address,t_uint256)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_allowances",
+                "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "_totalSupply",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "_name",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "_symbol",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_struct(ERC4626Storage)2209_storage": {
+            "label": "struct ERC4626Upgradeable.ERC4626Storage",
+            "members": [
+              {
+                "label": "_asset",
+                "type": "t_contract(IERC20)3331",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_underlyingDecimals",
+                "type": "t_uint8",
+                "offset": 20,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(InitializableStorage)1800_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)1740_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)2528_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          },
+          "t_array(t_struct(WithdrawalRequest)14493_storage)dyn_storage": {
+            "label": "struct EmberETHVault.WithdrawalRequest[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IEmberProtocolConfig)26903": {
+            "label": "contract IEmberProtocolConfig",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IEmberVaultValidator)27330": {
+            "label": "contract IEmberVaultValidator",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Account)14502_storage)": {
+            "label": "mapping(address => struct EmberETHVault.Account)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Account)14502_storage": {
+            "label": "struct EmberETHVault.Account",
+            "members": [
+              {
+                "label": "totalPendingWithdrawalShares",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "pendingWithdrawalRequestSequenceNumbers",
+                "type": "t_array(t_uint256)dyn_storage",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "cancelWithdrawRequestSequenceNumbers",
+                "type": "t_array(t_uint256)dyn_storage",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(PauseStatus)14480_storage": {
+            "label": "struct EmberETHVault.PauseStatus",
+            "members": [
+              {
+                "label": "deposits",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "withdrawals",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "0"
+              },
+              {
+                "label": "privilegedOperations",
+                "type": "t_bool",
+                "offset": 2,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PlatformFee)14457_storage": {
+            "label": "struct EmberETHVault.PlatformFee",
+            "members": [
+              {
+                "label": "accrued",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "lastChargedAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "platformFeePercentage",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(Rate)14466_storage": {
+            "label": "struct EmberETHVault.Rate",
+            "members": [
+              {
+                "label": "value",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "maxRateChangePerUpdate",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "rateUpdateInterval",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "lastUpdatedAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              }
+            ],
+            "numberOfBytes": "128"
+          },
+          "t_struct(Roles)14473_storage": {
+            "label": "struct EmberETHVault.Roles",
+            "members": [
+              {
+                "label": "admin",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "operator",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "rateManager",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(WithdrawalRequest)14493_storage": {
+            "label": "struct EmberETHVault.WithdrawalRequest",
+            "members": [
+              {
+                "label": "owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "receiver",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "shares",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "estimatedWithdrawAmount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "sequenceNumber",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              }
+            ],
+            "numberOfBytes": "192"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ERC4626": [
+            {
+              "contract": "ERC4626Upgradeable",
+              "label": "_asset",
+              "type": "t_contract(IERC20)3331",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol:56",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "ERC4626Upgradeable",
+              "label": "_underlyingDecimals",
+              "type": "t_uint8",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol:57",
+              "offset": 20,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ERC20": [
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_balances",
+              "type": "t_mapping(t_address,t_uint256)",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:33",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_allowances",
+              "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:35",
+              "offset": 0,
+              "slot": "1"
+            },
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_totalSupply",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:37",
+              "offset": 0,
+              "slot": "2"
+            },
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_name",
+              "type": "t_string_storage",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:39",
+              "offset": 0,
+              "slot": "3"
+            },
+            {
+              "contract": "ERC20Upgradeable",
+              "label": "_symbol",
+              "type": "t_string_storage",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:40",
+              "offset": 0,
+              "slot": "4"
             }
           ],
           "erc7201:openzeppelin.storage.Initializable": [

@@ -2,14 +2,16 @@ import { ethers } from "hardhat";
 import * as fs from "fs";
 
 /**
- * Updates the admin of a vault
- * This changes who can manage vault configuration (operator, rate manager, fees, etc.)
+ * Updates the maxTVL of a vault
  *
  * Required ENV variables:
  * - VAULT_KEY: Key of the vault in deployment file (e.g., "emberExusdcVault")
- * - NEW_ADMIN: Address of the new admin
+ * - NEW_MAX_TVL: New maxTVL in raw token units (collateral token decimals)
  *
- * Note: Only the vault OWNER can change the admin
+ * Optional ENV variables:
+ * - IS_ETH_VAULT: "true" to target an EmberETHVault (defaults to standard EmberVault)
+ *
+ * Note: Only the vault ADMIN can change maxTVL
  */
 async function main() {
   console.log("\n👤 Updating Vault Max TVL...\n");

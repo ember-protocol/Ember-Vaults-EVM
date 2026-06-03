@@ -148,8 +148,10 @@ contract EmberProtocolConfig is
   }
 
   /// @notice Updates the minimum interval for rate changes
+  /// @dev Lower-bounded by the protocol-level MIN_RATE_INTERVAL constant (1 hour) so the
+  ///      configurable floor cannot fall below the policy default.
   function updateMinRateInterval(uint256 minRateInterval_) external nonReentrant onlyOwner {
-    if (minRateInterval_ < 60 * 1_000 || minRateInterval_ > protocolConfig.maxRateInterval)
+    if (minRateInterval_ < MIN_RATE_INTERVAL || minRateInterval_ > protocolConfig.maxRateInterval)
       revert InvalidInterval();
     if (minRateInterval_ == protocolConfig.minRateInterval) revert SameValue();
     uint256 previous = protocolConfig.minRateInterval;
@@ -362,6 +364,35 @@ contract EmberProtocolConfig is
     IEmberVault(vault).setPausedStatus(msg.sender, operation, paused);
   }
 
+  /// @notice Sets the bridge adapter for a vault's cross-chain operations
+  /// @dev Validates parameters, then forwards to vault which verifies caller is admin
+  /// @param vault The vault address
+  /// @param newAdapter The new bridge adapter address (can be zero to disable)
+  function setVaultBridgeAdapter(address vault, address newAdapter) external nonReentrant {
+    // No validation needed - adapter can be any address or zero to disable
+    // Vault will verify caller is admin
+    IEmberVault(vault).setBridgeAdapter(msg.sender, newAdapter);
+  }
+
+  /// @notice Sets the bridge amount limits for a vault
+  /// @dev Validates parameters, then forwards to vault which verifies caller is admin
+  /// @param vault The vault address
+  /// @param minAmount The minimum bridge amount (0 = no minimum)
+  /// @param maxAmount The maximum bridge amount (0 = no maximum)
+  function setVaultBridgeLimits(
+    address vault,
+    uint256 minAmount,
+    uint256 maxAmount
+  ) external nonReentrant {
+    if (
+      minAmount == IEmberVault(vault).minBridgeAmount() &&
+      maxAmount == IEmberVault(vault).maxBridgeAmount()
+    ) revert SameValue();
+    if (maxAmount > 0 && minAmount > maxAmount) revert InvalidValue();
+
+    IEmberVault(vault).setBridgeLimits(msg.sender, minAmount, maxAmount);
+  }
+
   // ============================================
   // Withdrawal Fee & Deposit Allow List Functions (via Validator)
   // ============================================
@@ -415,7 +446,11 @@ contract EmberProtocolConfig is
   ) external nonReentrant {
     if (newPercentage >= 1e18) revert InvalidValue();
     IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
-    if (newPercentage == validator.withdrawalFee(vault).permanentFeePercentage) revert SameValue();
+    IEmberVaultValidator.WithdrawalFee memory fee = validator.withdrawalFee(vault);
+    if (newPercentage == fee.permanentFeePercentage) revert SameValue();
+    // Joint cap: the sum of permanent + time-based percentages must remain < 1e18 so the
+    // withdrawal fee subtraction (withdrawAmount -= totalFee) cannot underflow.
+    if (newPercentage + fee.timeBasedFeePercentage >= 1e18) revert InvalidValue();
     validator.setPermanentFeePercentage(msg.sender, vault, newPercentage);
   }
 
@@ -425,7 +460,10 @@ contract EmberProtocolConfig is
   ) external nonReentrant {
     if (newPercentage >= 1e18) revert InvalidValue();
     IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
-    if (newPercentage == validator.withdrawalFee(vault).timeBasedFeePercentage) revert SameValue();
+    IEmberVaultValidator.WithdrawalFee memory fee = validator.withdrawalFee(vault);
+    if (newPercentage == fee.timeBasedFeePercentage) revert SameValue();
+    // Joint cap with permanent fee — see updateVaultPermanentFeePercentage.
+    if (newPercentage + fee.permanentFeePercentage >= 1e18) revert InvalidValue();
     validator.setTimeBasedFeePercentage(msg.sender, vault, newPercentage);
   }
 
@@ -486,7 +524,7 @@ contract EmberProtocolConfig is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.0.0";
+    return "v2.1.0";
   }
 
   /// @notice Verifies that the protocol is not paused

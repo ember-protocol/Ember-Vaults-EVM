@@ -1,0 +1,141 @@
+{
+  "network": "pharos",
+  "chainId": "1672",
+  "contracts": {
+    "protocolConfig": {
+      "proxyAddress": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+      "implementationAddress": "0x94aaD03d34fD92fa84776E8Ba20F02cf28CFEff2",
+      "ownerAddress": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+      "version": "v2.1.0",
+      "deployedAt": "2026-04-14T11:14:10.564Z",
+      "deploymentBlockNumber": 5246878,
+      "upgradedAt": "2026-05-05T16:41:36.582Z",
+      "upgradedInBlock": 6502621
+    },
+    "vaults": {
+      "emberPharosAlpha": {
+        "proxyAddress": "0xE47E9bA4EA2320A6ed87246d02Fd5C38485Ed7d1",
+        "implementationAddress": "0xAD2d4bAa8FDdf291129d30595b242887b3Bc5243",
+        "ownerAddress": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "name": "Ember Pharos Alpha",
+        "receiptTokenSymbol": "pALPHA",
+        "collateralToken": "0xc879c018db60520f4355c26ed1a6d572cdac1815",
+        "admin": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "operator": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+        "maxTVL": "10000000000",
+        "version": "v2.1.0",
+        "deployedAt": "2026-04-14T11:16:48.087Z",
+        "deploymentBlockNumber": 5246950,
+        "validatorAddress": "0x6c0fa2a05186298d7fb839fcf8394a3f1F59D71B",
+        "upgradedAt": "2026-05-05T16:43:08.848Z",
+        "upgradedInBlock": 6502731,
+        "adminUpdatedAt": "2026-05-05T16:50:25.609Z"
+      },
+      "emberTulipaprwa": {
+        "proxyAddress": "0xBae9272F71Db2Dc9D053E3C6c4840dF65ae6aeC5",
+        "implementationAddress": "0xAD2d4bAa8FDdf291129d30595b242887b3Bc5243",
+        "ownerAddress": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "name": "Ember TulipaPRWA",
+        "receiptTokenSymbol": "tulPRWA",
+        "collateralToken": "0xC879C018dB60520F4355C26eD1a6D572cdAC1815",
+        "admin": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "operator": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+        "maxTVL": "20000000000000",
+        "version": "v2.1.0",
+        "deployedAt": "2026-04-19T21:26:59.674Z",
+        "deploymentBlockNumber": 5460071,
+        "validatorAddress": "0x6c0fa2a05186298d7fb839fcf8394a3f1F59D71B",
+        "upgradedAt": "2026-05-05T16:45:32.359Z",
+        "upgradedInBlock": 6502903,
+        "adminUpdatedAt": "2026-05-05T16:49:58.153Z"
+      },
+      "emberHilbert": {
+        "proxyAddress": "0x0284534de2c9C3Dd1B6f277C8eB673F2B4AA54b0",
+        "implementationAddress": "0xAD2d4bAa8FDdf291129d30595b242887b3Bc5243",
+        "ownerAddress": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "name": "Ember Hilbert",
+        "receiptTokenSymbol": "hLEND",
+        "collateralToken": "0xC879C018dB60520F4355C26eD1a6D572cdAC1815",
+        "admin": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "operator": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+        "maxTVL": "15000000000000",
+        "version": "v2.1.0",
+        "deployedAt": "2026-05-26T14:49:26.090Z",
+        "deploymentBlockNumber": 8380080
+      },
+      "emberAgra": {
+        "proxyAddress": "0xdF6ccF46f0C800CE98C085BF3cF47b72e4a5A519",
+        "implementationAddress": "0xAD2d4bAa8FDdf291129d30595b242887b3Bc5243",
+        "ownerAddress": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "name": "Ember Agra",
+        "receiptTokenSymbol": "eAGRA",
+        "collateralToken": "0xC879C018dB60520F4355C26eD1a6D572cdAC1815",
+        "admin": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "operator": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+        "maxTVL": "20000000000000",
+        "version": "v2.1.0",
+        "deployedAt": "2026-05-26T15:09:45.178Z",
+        "deploymentBlockNumber": 8381450
+      },
+      "emberQiro": {
+        "proxyAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
+        "implementationAddress": "0xAD2d4bAa8FDdf291129d30595b242887b3Bc5243",
+        "ownerAddress": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "name": "Ember Qiro",
+        "receiptTokenSymbol": "eQCRD",
+        "collateralToken": "0xC879C018dB60520F4355C26eD1a6D572cdAC1815",
+        "admin": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+        "operator": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+        "maxTVL": "250000000000",
+        "version": "v2.1.0",
+        "deployedAt": "2026-05-26T15:16:48.542Z",
+        "deploymentBlockNumber": 8381931
+      }
+    },
+    "vaultValidator": {
+      "proxyAddress": "0x6c0fa2a05186298d7fb839fcf8394a3f1F59D71B",
+      "implementationAddress": "0x2A85b52b309D0876DeFB335404F8d3Ec36eA8ab3",
+      "protocolConfigAddress": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+      "ownerAddress": "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6",
+      "version": "v1.0.0",
+      "deployedAt": "2026-04-14T11:20:33.224Z",
+      "deploymentBlockNumber": 5247060,
+      "upgradedAt": "2026-05-05T16:46:55.650Z",
+      "upgradedInBlock": 6503002
+    },
+    "oftAdapters": {
+      "emberPharosAlphaOFTAdapter": {
+        "address": "0x93728958821A31B59fb5DC459c94c0d6D714701D",
+        "contractName": "EmberVaultMintBurnOFTAdapter",
+        "vaultKey": "emberPharosAlpha",
+        "vaultAddress": "0xE47E9bA4EA2320A6ed87246d02Fd5C38485Ed7d1",
+        "receiptTokenSymbol": "pALPHA",
+        "lzEndpointAddress": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
+        "delegate": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "owner": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "decimalConversionRate": "1",
+        "deployedAt": "2026-05-05T17:03:34.800Z",
+        "deploymentBlockNumber": 6504186,
+        "peers": {
+          "30101": {
+            "peerAddress": "0x000000000000000000000000c6507ef17265b4eed37ae901d939a6b977c5cba3",
+            "decodedAddress": "0xc6507ef17265b4eed37ae901d939a6b977c5cba3",
+            "configuredAt": "2026-05-05T18:23:28.134Z",
+            "txHash": "0x63ca8f4933b49abd5cbb9f62a7637f7b709797aa5c3cb1407bbb544782769c9e",
+            "blockNumber": 6509801
+          }
+        }
+      }
+    }
+  }
+}

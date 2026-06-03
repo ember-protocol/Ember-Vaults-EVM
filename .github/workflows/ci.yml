@@ -22,7 +22,7 @@ jobs:
           cache: "yarn"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Check code formatting
         run: yarn format:check
@@ -42,7 +42,7 @@ jobs:
           cache: "yarn"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Compile contracts
         run: yarn compile
@@ -62,7 +62,7 @@ jobs:
           cache: "yarn"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Run tests with coverage
         run: yarn coverage
@@ -76,4 +76,76 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 30
+
+  validate-upgrades:
+    name: Validate Upgrade Compatibility
+    runs-on: ubuntu-latest
+    # NOTE: Initially non-blocking. Flip `continue-on-error` to false (and make
+    # this job a required check in branch protection) once a few green runs
+    # confirm the manifest reconciliation is correct.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        network: [mainnet, pharos]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Compile contracts
+        run: yarn compile
+
+      - name: Validate upgrade compatibility against deployed proxies
+        # Run without errexit so the loop can inspect $? after a failed yarn
+        # invocation and decide whether to retry on the next RPC. GitHub
+        # Actions' default `bash -e` would abort on the first non-zero status.
+        shell: bash --noprofile --norc {0}
+        env:
+          DEPLOY_ON: ${{ matrix.network }}
+          # Each network: prefer the matching repo secret, then fall back to
+          # public read-only RPC(s). All defaults are unauthenticated.
+          PRIMARY_RPC: ${{ matrix.network == 'mainnet' && (secrets.MAINNET_RPC_URL || 'https://ethereum-rpc.publicnode.com') || (secrets.PHAROS_RPC_URL || 'https://rpc.pharos.xyz') }}
+          FALLBACK_RPCS: ${{ matrix.network == 'mainnet' && 'https://eth.llamarpc.com,https://cloudflare-eth.com,https://rpc.flashbots.net' || 'https://infra.originstake.com/pharos/evm' }}
+          NETWORK: ${{ matrix.network }}
+        run: |
+          set -u
+          if [ -z "${PRIMARY_RPC:-}" ]; then
+            echo "❌ PRIMARY_RPC is empty for $NETWORK."
+            echo "   Configure the matching repo secret (MAINNET_RPC_URL or PHAROS_RPC_URL)."
+            exit 1
+          fi
+          URLS="$PRIMARY_RPC"
+          if [ -n "${FALLBACK_RPCS:-}" ]; then URLS="$URLS,$FALLBACK_RPCS"; fi
+          IFS=',' read -ra LIST <<< "$URLS"
+          ATTEMPT=0
+          for url in "${LIST[@]}"; do
+            ATTEMPT=$((ATTEMPT+1))
+            echo "::group::RPC attempt $ATTEMPT: $url"
+            case "$NETWORK" in
+              mainnet) MAINNET_RPC_URL="$url" yarn ci:validate-upgrades --network "$NETWORK" ;;
+              pharos)  PHAROS_RPC_URL="$url"  yarn ci:validate-upgrades --network "$NETWORK" ;;
+              *)       echo "Unknown network: $NETWORK"; exit 1 ;;
+            esac
+            STATUS=$?
+            echo "::endgroup::"
+            # Exit codes from the script:
+            #   0 — all proxies valid (we're done)
+            #   1 — validation failure (real bug; do NOT retry on another RPC)
+            #   2 — RPC probe failure (retry on next fallback)
+            if [ $STATUS -eq 0 ] || [ $STATUS -eq 1 ]; then
+              exit $STATUS
+            fi
+            echo "RPC $url unreachable (exit $STATUS); trying next endpoint..."
+          done
+          echo "❌ All RPC endpoints unreachable for $NETWORK"
+          exit 1
 

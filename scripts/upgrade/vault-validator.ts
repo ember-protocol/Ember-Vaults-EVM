@@ -2,17 +2,17 @@ import { ethers, upgrades } from "hardhat";
 import * as fs from "fs";
 
 /**
- * Upgrades EmberProtocolConfig proxy to a new implementation.
+ * Upgrades EmberVaultValidator proxy to a new implementation.
  *
  * Usage:
  * - Uses deployments/<network>-deployment.json by default
- * - Optional env var PROTOCOL_CONFIG_PROXY overrides proxy address from deployment file
+ * - Optional env var VAULT_VALIDATOR_PROXY overrides proxy address from deployment file
  *
  * Example:
- *   PROTOCOL_CONFIG_PROXY=0x... yarn upgrade:protocol-config --network sepolia
+ *   VAULT_VALIDATOR_PROXY=0x... yarn upgrade:vault-validator --network sepolia
  */
 async function main() {
-  console.log("\n🔄 Upgrading EmberProtocolConfig...\n");
+  console.log("\n🔄 Upgrading EmberVaultValidator...\n");
 
   const [deployer] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
@@ -37,13 +37,13 @@ async function main() {
   console.log("📂 Loading deployment file:", deploymentFileName);
   const deploymentInfo = JSON.parse(fs.readFileSync(deploymentFileName, "utf8"));
 
-  const proxyFromDeployment = deploymentInfo?.contracts?.protocolConfig?.proxyAddress;
-  const proxyAddress = process.env.PROTOCOL_CONFIG_PROXY || proxyFromDeployment;
+  const proxyFromDeployment = deploymentInfo?.contracts?.vaultValidator?.proxyAddress;
+  const proxyAddress = process.env.VAULT_VALIDATOR_PROXY || proxyFromDeployment;
 
   if (!proxyAddress) {
-    console.error("❌ Error: Protocol config proxy address not found!");
+    console.error("❌ Error: Vault validator proxy address not found!");
     console.log(
-      "Set PROTOCOL_CONFIG_PROXY or ensure contracts.protocolConfig.proxyAddress exists."
+      "Set VAULT_VALIDATOR_PROXY or ensure contracts.vaultValidator.proxyAddress exists."
     );
     process.exit(1);
   }
@@ -54,27 +54,27 @@ async function main() {
   console.log("Proxy:", proxyAddress);
 
   const currentImpl = await upgrades.erc1967.getImplementationAddress(proxyAddress);
-  const protocolConfig = await ethers.getContractAt("EmberProtocolConfig", proxyAddress);
-  const currentVersion = await protocolConfig.version();
+  const vaultValidator = await ethers.getContractAt("EmberVaultValidator", proxyAddress);
+  const currentVersion = await vaultValidator.version();
 
   console.log("Current Implementation:", currentImpl);
   console.log("Current Version:", currentVersion);
   console.log("=".repeat(70));
 
   // Safety delay before sending an upgrade transaction.
-  console.log("\n⚠️  WARNING: This will upgrade EmberProtocolConfig on", network.name);
+  console.log("\n⚠️  WARNING: This will upgrade EmberVaultValidator on", network.name);
   console.log("⚠️  Make sure this implementation has been tested and audited.");
   console.log("\nContinuing in 5 seconds... (Press Ctrl+C to cancel)");
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
   console.log("\n🚀 Starting upgrade process...\n");
 
-  const ProtocolConfigFactory = await ethers.getContractFactory("EmberProtocolConfig");
+  const VaultValidatorFactory = await ethers.getContractFactory("EmberVaultValidator");
 
   // Validate storage-layout compatibility BEFORE deploying anything.
   console.log("🔒 Validating upgrade compatibility...");
   try {
-    await upgrades.validateUpgrade(proxyAddress, ProtocolConfigFactory, { kind: "uups" });
+    await upgrades.validateUpgrade(proxyAddress, VaultValidatorFactory, { kind: "uups" });
     console.log("   ✅ Upgrade is storage-layout compatible");
   } catch (err: any) {
     console.error("\n❌ Upgrade validation FAILED — aborting.");
@@ -87,13 +87,13 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("\n📦 Deploying new EmberProtocolConfig implementation via upgrades plugin...");
-  const newImplementationAddress = (await upgrades.deployImplementation(ProtocolConfigFactory, {
+  console.log("\n📦 Deploying new EmberVaultValidator implementation via upgrades plugin...");
+  const newImplementationAddress = (await upgrades.deployImplementation(VaultValidatorFactory, {
     kind: "uups",
     redeployImplementation: "always",
   })) as string;
   const newImplementation = await ethers.getContractAt(
-    "EmberProtocolConfig",
+    "EmberVaultValidator",
     newImplementationAddress
   );
 
@@ -111,7 +111,7 @@ async function main() {
   console.log("From:", currentImpl);
   console.log("To:  ", newImplementationAddress);
 
-  const upgradeTx = await protocolConfig.upgradeToAndCall(newImplementationAddress, "0x");
+  const upgradeTx = await vaultValidator.upgradeToAndCall(newImplementationAddress, "0x");
   console.log("Transaction hash:", upgradeTx.hash);
   console.log("Waiting for confirmation...");
 
@@ -120,7 +120,7 @@ async function main() {
   console.log("Gas used:", upgradeReceipt?.gasUsed.toString());
 
   const implAfter = await upgrades.erc1967.getImplementationAddress(proxyAddress);
-  const versionAfter = await protocolConfig.version();
+  const versionAfter = await vaultValidator.version();
 
   console.log("\n📊 Post-Upgrade Verification:");
   console.log("Implementation:", implAfter);
@@ -136,21 +136,21 @@ async function main() {
     deploymentInfo.contracts = {};
   }
 
-  if (!deploymentInfo.contracts.protocolConfig) {
-    deploymentInfo.contracts.protocolConfig = {};
+  if (!deploymentInfo.contracts.vaultValidator) {
+    deploymentInfo.contracts.vaultValidator = {};
   }
 
-  deploymentInfo.contracts.protocolConfig.proxyAddress = proxyAddress;
-  deploymentInfo.contracts.protocolConfig.implementationAddress = newImplementationAddress;
-  deploymentInfo.contracts.protocolConfig.version = versionAfter;
-  deploymentInfo.contracts.protocolConfig.upgradedAt = new Date().toISOString();
-  deploymentInfo.contracts.protocolConfig.upgradedInBlock = upgradeReceipt?.blockNumber || 0;
+  deploymentInfo.contracts.vaultValidator.proxyAddress = proxyAddress;
+  deploymentInfo.contracts.vaultValidator.implementationAddress = newImplementationAddress;
+  deploymentInfo.contracts.vaultValidator.version = versionAfter;
+  deploymentInfo.contracts.vaultValidator.upgradedAt = new Date().toISOString();
+  deploymentInfo.contracts.vaultValidator.upgradedInBlock = upgradeReceipt?.blockNumber || 0;
 
   fs.writeFileSync(deploymentFileName, JSON.stringify(deploymentInfo, null, 2));
   console.log("\n✅ Deployment file updated:", deploymentFileName);
 
   console.log("\n" + "=".repeat(70));
-  console.log("🎉 EmberProtocolConfig Upgrade Complete!");
+  console.log("🎉 EmberVaultValidator Upgrade Complete!");
   console.log("=".repeat(70));
   console.log("Proxy Address:", proxyAddress);
   console.log("Previous Implementation:", currentImpl);

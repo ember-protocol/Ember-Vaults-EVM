@@ -104,19 +104,40 @@ async function main() {
 
   console.log("\n🚀 Starting upgrade process...\n");
 
-  // Deploy new implementation (manually, not via upgrades plugin)
-  console.log("📦 Deploying new EmberVault implementation...");
   const EmberVaultFactory = (await ethers.getContractFactory(vaultType)) as
     | EmberETHVault__factory
     | EmberVault__factory;
 
-  console.log("   Deploying new implementation contract...");
-  const newImplementation = await EmberVaultFactory.deploy();
-  await newImplementation.waitForDeployment();
-  const newImplementationAddress = await newImplementation.getAddress();
+  // Validate storage-layout compatibility for every proxy BEFORE deploying anything.
+  // This is what catches the class of bug where a renamed/reordered/removed state
+  // variable would corrupt existing storage after `upgradeToAndCall`.
+  console.log("🔒 Validating upgrade compatibility for each proxy...");
+  for (const vaultKey of vaultKeysToUpgrade) {
+    const proxyAddress = vaults[vaultKey].proxyAddress;
+    try {
+      await upgrades.validateUpgrade(proxyAddress, EmberVaultFactory, { kind: "uups" });
+      console.log(`   ✅ ${vaultKey} (${proxyAddress}) — compatible`);
+    } catch (err: any) {
+      console.error(`\n❌ Upgrade validation FAILED for ${vaultKey} (${proxyAddress}):`);
+      console.error(err?.message ?? err);
+      console.error(
+        "\nIf this proxy is missing from .openzeppelin/<network>.json,",
+        "run `upgrades.forceImport(proxy, Factory, { kind: 'uups' })` once",
+        "to register the deployed implementation, then retry. Do NOT bypass this check."
+      );
+      process.exit(1);
+    }
+  }
+  console.log("   All proxies pass validation.\n");
 
-  // const newImplementationAddress = "0xDb60e16BaEe20fc5464F4F8D8688Ab9Ba2793Ca7";
-  // const newImplementation = await ethers.getContractAt(vaultType, newImplementationAddress);
+  // Deploy the new implementation through the upgrades plugin so the
+  // .openzeppelin/<network>.json manifest is updated. Returns the impl address.
+  console.log("📦 Deploying new", vaultType, "implementation via upgrades plugin...");
+  const newImplementationAddress = (await upgrades.deployImplementation(EmberVaultFactory, {
+    kind: "uups",
+    redeployImplementation: "always",
+  })) as string;
+  const newImplementation = await ethers.getContractAt(vaultType, newImplementationAddress);
 
   console.log("   ✅ New Implementation deployed at:", newImplementationAddress);
 

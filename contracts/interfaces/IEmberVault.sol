@@ -89,6 +89,21 @@ interface IEmberVault {
   /// @notice Sets the pause status for a specific operation (requires admin role)
   function setPausedStatus(address caller, string calldata operation, bool paused) external;
 
+  /// @notice Sets the bridge adapter for cross-chain operations (requires admin role)
+  function setBridgeAdapter(address caller, address newAdapter) external;
+
+  /// @notice Sets the bridge amount limits (requires admin role)
+  function setBridgeLimits(address caller, uint256 minAmount, uint256 maxAmount) external;
+
+  /// @notice Returns the current bridge adapter address
+  function bridgeAdapter() external view returns (address);
+
+  /// @notice Returns the minimum bridge amount
+  function minBridgeAmount() external view returns (uint256);
+
+  /// @notice Returns the maximum bridge amount
+  function maxBridgeAmount() external view returns (uint256);
+
   /// @notice Sets the vault validator contract address (requires admin role)
   function setVaultValidator(address caller, address _validator) external;
 }

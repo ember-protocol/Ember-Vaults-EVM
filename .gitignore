@@ -48,3 +48,12 @@ mythril-report.txt
 typechain-types/
 coverage.json
 out/*.sol
+
+# Yarn Berry
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*

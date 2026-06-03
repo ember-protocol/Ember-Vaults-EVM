@@ -31,7 +31,7 @@ describe("EmberProtocolConfig", function () {
   describe("Deployment and initialization", function () {
     it("sets owner and version defaults", async function () {
       expect(await config.owner()).to.equal(owner.address);
-      expect(await config.version()).to.equal("v2.0.0");
+      expect(await config.version()).to.equal("v2.1.0");
     });
 
     it("initializes defaults correctly", async function () {

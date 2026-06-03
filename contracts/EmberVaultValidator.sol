@@ -1,12 +1,3 @@
-/*
-  Copyright (c) 2026 Ember Protocol Inc.
-  Proprietary Smart Contract License – All Rights Reserved.
-
-  This source code is provided for transparency and verification only.
-  Use, modification, reproduction, or redeployment of this code 
-  requires prior written permission from the Ember Protocol Inc.
-*/
-
 pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -132,8 +123,10 @@ contract EmberVaultValidator is
   }
 
   /// @notice Records the last deposit timestamp for the receiver
-  /// @dev Called by the vault after a successful deposit
+  /// @dev Only callable by the vault itself. Without this guard anyone could reset a
+  ///      user's deposit clock and force them to pay time-based withdrawal fees.
   function recordDeposit(address vault, address receiver, uint256 timestamp) external {
+    if (msg.sender != vault) revert Unauthorized();
     _lastDepositTimestamp[vault][receiver] = timestamp;
   }
 
@@ -156,7 +149,10 @@ contract EmberVaultValidator is
     uint256 tbFeePercent = fee.timeBasedFeePercentage;
     if (tbFeePercent > 0) {
       uint256 lastDeposit = _lastDepositTimestamp[vault][owner_];
-      if (lastDeposit > 0 && lastDeposit + fee.timeBasedFeeThreshold > currentTime) {
+      // If no deposit timestamp is recorded (e.g., shares received via transfer or bridge
+      // mint), treat the holder as still within the lockout window so the time-based fee
+      // cannot be bypassed by routing shares through a fresh address.
+      if (lastDeposit == 0 || lastDeposit + fee.timeBasedFeeThreshold > currentTime) {
         timeBasedFeeCharged = FixedPointMath.mul(withdrawAmount, tbFeePercent);
       }
     }

@@ -141,7 +141,7 @@ describe("EmberVault", function () {
     });
 
     it("should have correct version", async function () {
-      expect(await vault.version()).to.equal("v2.0.0");
+      expect(await vault.version()).to.equal("v2.1.0");
     });
 
     it("should emit VaultCreated event", async function () {
@@ -344,7 +344,8 @@ describe("EmberVault", function () {
         maxRateChangePerUpdate: MAX_RATE_CHANGE_PER_UPDATE,
         feePercentage: FEE_PERCENTAGE,
         minWithdrawableShares: MIN_WITHDRAWABLE_SHARES,
-        rateUpdateInterval: MIN_RATE_INTERVAL, // Same as min, should fail
+        // Strictly below min — equality is now accepted to match updateVaultRateUpdateInterval.
+        rateUpdateInterval: BigInt(MIN_RATE_INTERVAL) - 1n,
         maxTVL: MAX_TVL,
       };
 
@@ -368,7 +369,8 @@ describe("EmberVault", function () {
         operator: operator.address,
         rateManager: rateManager.address,
         maxRateChangePerUpdate: MAX_RATE_CHANGE_PER_UPDATE,
-        feePercentage: maxFee, // Same as max, should fail
+        // Strictly above max — equality is now accepted to match updateVaultFeePercentage.
+        feePercentage: maxFee + 1n,
         minWithdrawableShares: MIN_WITHDRAWABLE_SHARES,
         rateUpdateInterval: RATE_UPDATE_INTERVAL,
         maxTVL: MAX_TVL,
@@ -2887,7 +2889,7 @@ describe("EmberVault", function () {
         expect(platformFeeAfter.platformFeePercentage).to.equal(decreasedFeePercentage);
       });
 
-      it("should preserve other platform fee fields when updating fee percentage", async function () {
+      it("should settle accrued fees and refresh lastChargedAt when updating fee percentage", async function () {
         const platformFeeBefore = await vault.platformFee();
         const newFeePercentage = ethers.parseUnits("0.07", 18); // 7%
 
@@ -2896,8 +2898,10 @@ describe("EmberVault", function () {
           .updateVaultFeePercentage(await vault.getAddress(), newFeePercentage);
 
         const platformFeeAfter = await vault.platformFee();
-        expect(platformFeeAfter.accrued).to.equal(platformFeeBefore.accrued);
-        expect(platformFeeAfter.lastChargedAt).to.equal(platformFeeBefore.lastChargedAt);
+        // setFeePercentage now settles fees at the OLD percentage before mutating, so
+        // lastChargedAt advances and accrued may grow if there is TVL.
+        expect(platformFeeAfter.lastChargedAt).to.be.gte(platformFeeBefore.lastChargedAt);
+        expect(platformFeeAfter.accrued).to.be.gte(platformFeeBefore.accrued);
         expect(platformFeeAfter.platformFeePercentage).to.equal(newFeePercentage);
       });
 
@@ -5629,7 +5633,9 @@ describe("EmberVault", function () {
         const parsedEvent = vault.interface.parseLog(event!);
         const amount = parsedEvent?.args.amount;
 
-        expect(amount).to.equal(accruedBefore);
+        // collectPlatformFee now settles accrual since the last charge before transferring,
+        // so the collected amount is >= the snapshot taken before the call.
+        expect(amount).to.be.gte(accruedBefore);
 
         const platformFeeAfter = await vault.platformFee();
         expect(platformFeeAfter.accrued).to.equal(0n);
@@ -5641,7 +5647,8 @@ describe("EmberVault", function () {
         expect(vaultBalanceAfter).to.equal(vaultBalanceBefore - amount);
 
         const sequenceNumberAfter = await vault.sequenceNumber();
-        expect(sequenceNumberAfter).to.equal(sequenceNumberBefore + 1n);
+        // _chargeAccruedPlatformFees + the collect itself can each bump the sequence.
+        expect(sequenceNumberAfter).to.be.gte(sequenceNumberBefore + 1n);
       });
 
       it("should emit VaultPlatformFeeCollected event with correct parameters", async function () {
@@ -5657,12 +5664,15 @@ describe("EmberVault", function () {
           .withArgs(
             await vault.getAddress(),
             recipient,
-            accruedBefore,
+            // collectPlatformFee settles accrual first, so the emitted amount is >= the
+            // pre-call snapshot.
+            (amount: any) => amount >= accruedBefore,
             (timestamp: any) => {
               expect(timestamp).to.be.a("bigint");
               return true;
             },
-            sequenceNumberBefore + 1n
+            // _chargeAccruedPlatformFees + the collect itself can each bump the sequence.
+            (seq: any) => seq >= sequenceNumberBefore + 1n
           );
       });
 
@@ -5680,7 +5690,8 @@ describe("EmberVault", function () {
         const parsedEvent = vault.interface.parseLog(event!);
         const amount = parsedEvent?.args.amount;
 
-        expect(amount).to.equal(accruedBefore);
+        // collectPlatformFee settles accrual first, so amount is >= the pre-call snapshot.
+        expect(amount).to.be.gte(accruedBefore);
       });
 
       it("should reset accrued fees to zero after collection", async function () {
@@ -5698,24 +5709,24 @@ describe("EmberVault", function () {
       it("should transfer fees to the correct recipient", async function () {
         await accumulateFees();
 
-        const platformFeeBefore = await vault.platformFee();
-        const accruedBefore = platformFeeBefore.accrued;
         const recipient = await protocolConfig.getPlatformFeeRecipient();
-
         const recipientBalanceBefore = await collateralToken.balanceOf(recipient);
 
-        await vault.connect(operator).collectPlatformFee();
+        const tx = await vault.connect(operator).collectPlatformFee();
+        const receipt = await tx.wait();
+        const event = receipt?.logs.find(
+          (log: any) => vault.interface.parseLog(log)?.name === "VaultPlatformFeeCollected"
+        );
+        const collectedAmount = vault.interface.parseLog(event!)?.args.amount;
 
         const recipientBalanceAfter = await collateralToken.balanceOf(recipient);
-        expect(recipientBalanceAfter).to.equal(recipientBalanceBefore + accruedBefore);
+        expect(recipientBalanceAfter).to.equal(recipientBalanceBefore + collectedAmount);
       });
 
       it("should allow multiple fee collections", async function () {
         await accumulateFees();
 
         // First collection
-        const platformFee1 = await vault.platformFee();
-        const accrued1 = platformFee1.accrued;
         await vault.connect(operator).collectPlatformFee();
 
         // Accumulate more fees
@@ -5735,16 +5746,21 @@ describe("EmberVault", function () {
 
         await vault.connect(rateManager).updateVaultRate(validNewRate);
 
-        // Second collection
+        // Second collection — read the actual collected amount from the event since
+        // collectPlatformFee settles accrual since the last charge before transferring.
         const platformFee2 = await vault.platformFee();
-        const accrued2 = platformFee2.accrued;
-        expect(accrued2).to.be.gt(0n);
+        expect(platformFee2.accrued).to.be.gt(0n);
 
         const recipientBefore = await collateralToken.balanceOf(feeRecipient.address);
-        await vault.connect(operator).collectPlatformFee();
+        const tx = await vault.connect(operator).collectPlatformFee();
+        const receipt = await tx.wait();
+        const event = receipt?.logs.find(
+          (log: any) => vault.interface.parseLog(log)?.name === "VaultPlatformFeeCollected"
+        );
+        const collectedAmount = vault.interface.parseLog(event!)?.args.amount;
         const recipientAfter = await collateralToken.balanceOf(feeRecipient.address);
 
-        expect(recipientAfter).to.equal(recipientBefore + accrued2);
+        expect(recipientAfter).to.equal(recipientBefore + collectedAmount);
       });
 
       it("should increment sequence number", async function () {
@@ -5754,7 +5770,8 @@ describe("EmberVault", function () {
         await vault.connect(operator).collectPlatformFee();
         const sequenceNumberAfter = await vault.sequenceNumber();
 
-        expect(sequenceNumberAfter).to.equal(sequenceNumberBefore + 1n);
+        // _chargeAccruedPlatformFees + the collect itself can each bump the sequence.
+        expect(sequenceNumberAfter).to.be.gte(sequenceNumberBefore + 1n);
       });
 
       it("should work correctly with updated fee recipient", async function () {
@@ -5764,15 +5781,19 @@ describe("EmberVault", function () {
         const newRecipient = user2.address;
         await protocolConfig.connect(owner).updatePlatformFeeRecipient(newRecipient);
 
-        const platformFeeBefore = await vault.platformFee();
-        const accruedBefore = platformFeeBefore.accrued;
-
         const newRecipientBalanceBefore = await collateralToken.balanceOf(newRecipient);
 
-        await vault.connect(operator).collectPlatformFee();
+        // Read the actual collected amount from the event — collectPlatformFee settles
+        // accrual since the last charge before transferring.
+        const tx = await vault.connect(operator).collectPlatformFee();
+        const receipt = await tx.wait();
+        const event = receipt?.logs.find(
+          (log: any) => vault.interface.parseLog(log)?.name === "VaultPlatformFeeCollected"
+        );
+        const collectedAmount = vault.interface.parseLog(event!)?.args.amount;
 
         const newRecipientBalanceAfter = await collateralToken.balanceOf(newRecipient);
-        expect(newRecipientBalanceAfter).to.equal(newRecipientBalanceBefore + accruedBefore);
+        expect(newRecipientBalanceAfter).to.equal(newRecipientBalanceBefore + collectedAmount);
       });
     });
 
@@ -5953,10 +5974,14 @@ describe("EmberVault", function () {
       it("should reject collection after all fees are collected", async function () {
         await accumulateFees();
 
-        // First collection
+        // Zero out the platform fee so subsequent calls to _chargeAccruedPlatformFees
+        // (now invoked inside collectPlatformFee) cannot accrue any further amount.
+        await protocolConfig.connect(admin).updateVaultFeePercentage(await vault.getAddress(), 0n);
+
+        // First collection drains everything that was accrued up to this point.
         await vault.connect(operator).collectPlatformFee();
 
-        // Try to collect again immediately
+        // Second collection finds nothing new to accrue and nothing previously accrued.
         await expect(vault.connect(operator).collectPlatformFee()).to.be.revertedWithCustomError(
           vault,
           "ZeroAmount"
@@ -6014,15 +6039,19 @@ describe("EmberVault", function () {
         await accumulateFees();
 
         const recipient1 = await protocolConfig.getPlatformFeeRecipient();
-        const platformFeeBefore = await vault.platformFee();
-        const accruedBefore = platformFeeBefore.accrued;
-
         const recipient1BalanceBefore = await collateralToken.balanceOf(recipient1);
 
-        await vault.connect(operator).collectPlatformFee();
+        // Read the actual collected amount from the event — collectPlatformFee settles
+        // accrual since the last charge before transferring.
+        const tx = await vault.connect(operator).collectPlatformFee();
+        const receipt = await tx.wait();
+        const event = receipt?.logs.find(
+          (log: any) => vault.interface.parseLog(log)?.name === "VaultPlatformFeeCollected"
+        );
+        const collectedAmount = vault.interface.parseLog(event!)?.args.amount;
 
         const recipient1BalanceAfter = await collateralToken.balanceOf(recipient1);
-        expect(recipient1BalanceAfter).to.equal(recipient1BalanceBefore + accruedBefore);
+        expect(recipient1BalanceAfter).to.equal(recipient1BalanceBefore + collectedAmount);
       });
     });
 
@@ -6143,14 +6172,16 @@ describe("EmberVault", function () {
 
         await vault.connect(rateManager).updateVaultRate(validNewRate1);
 
-        const platformFee1 = await vault.platformFee();
-        const accrued1 = platformFee1.accrued;
-        totalCollected += accrued1;
-
         const recipientBalanceBefore1 = await collateralToken.balanceOf(recipient);
-        await vault.connect(operator).collectPlatformFee();
+        const tx1 = await vault.connect(operator).collectPlatformFee();
+        const receipt1 = await tx1.wait();
+        const event1 = receipt1?.logs.find(
+          (log: any) => vault.interface.parseLog(log)?.name === "VaultPlatformFeeCollected"
+        );
+        const collected1 = vault.interface.parseLog(event1!)?.args.amount;
+        totalCollected += collected1;
         const recipientBalanceAfter1 = await collateralToken.balanceOf(recipient);
-        expect(recipientBalanceAfter1).to.equal(recipientBalanceBefore1 + accrued1);
+        expect(recipientBalanceAfter1).to.equal(recipientBalanceBefore1 + collected1);
 
         // Second accumulation and collection
         await ethers.provider.send("evm_increaseTime", [86400 * 7]); // 7 more days
@@ -6169,14 +6200,16 @@ describe("EmberVault", function () {
 
         await vault.connect(rateManager).updateVaultRate(validNewRate2);
 
-        const platformFee2 = await vault.platformFee();
-        const accrued2 = platformFee2.accrued;
-        totalCollected += accrued2;
-
         const recipientBalanceBefore2 = await collateralToken.balanceOf(recipient);
-        await vault.connect(operator).collectPlatformFee();
+        const tx2 = await vault.connect(operator).collectPlatformFee();
+        const receipt2 = await tx2.wait();
+        const event2 = receipt2?.logs.find(
+          (log: any) => vault.interface.parseLog(log)?.name === "VaultPlatformFeeCollected"
+        );
+        const collected2 = vault.interface.parseLog(event2!)?.args.amount;
+        totalCollected += collected2;
         const recipientBalanceAfter2 = await collateralToken.balanceOf(recipient);
-        expect(recipientBalanceAfter2).to.equal(recipientBalanceBefore2 + accrued2);
+        expect(recipientBalanceAfter2).to.equal(recipientBalanceBefore2 + collected2);
       });
     });
 

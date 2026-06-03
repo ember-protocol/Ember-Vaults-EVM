@@ -33,10 +33,19 @@ const config: HardhatUserConfig = {
   },
   defaultNetwork: ENV.DEPLOY_ON,
   networks: {
-    // Local network
+    // Local network with optional mainnet forking for upgrade testing
     hardhat: {
       chainId: 31337,
       allowUnlimitedContractSize: true, // Allow large contracts for testing
+      // Enable forking when FORK_MAINNET=true
+      forking:
+        process.env.FORK_MAINNET === "true" && process.env.MAINNET_RPC_URL
+          ? {
+              url: process.env.MAINNET_RPC_URL,
+              // Optional: pin to a specific block for reproducibility
+              // blockNumber: 24250000,
+            }
+          : undefined,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -56,6 +65,12 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 688689,
       gasPrice: Number(process.env.PHAROS_TESTNET_GAS_PRICE_GWEI || "1") * 1_000_000_000,
+    },
+    pharos: {
+      url: process.env.PHAROS_RPC_URL || "",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 1672,
+      gasPrice: Number(process.env.PHAROS_GAS_PRICE_GWEI || "1") * 1_000_000_000_0,
     },
   },
   paths: {

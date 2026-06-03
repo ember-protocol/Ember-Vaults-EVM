@@ -1,13 +1,23 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const PROXY_ADMIN_ADDRESS = "0x0b9342C15143E8F54a83f887C280A922f4c48771";
-  const NEW_OWNER = "0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6";
+  const PROXY_ADMIN_ADDRESS = "";
+  const NEW_OWNER = "";
 
   const [signer] = await ethers.getSigners();
 
-  const ProxyAdmin = await ethers.getContractAt("EmberVault", PROXY_ADMIN_ADDRESS, signer);
+  const ProxyAdmin = await ethers.getContractAt("EmberProtocolConfig", PROXY_ADMIN_ADDRESS, signer);
 
+  const signerAddress = await signer.getAddress();
+
+  signer.provider.getBalance(signerAddress).then((balance) => {
+    console.log(`Signer balance: ${ethers.formatEther(balance)} ETH (${balance} wei)`);
+  });
+
+  signer.provider.getNetwork().then((network) => {
+    console.log(`Connected to network: ${network.name} (chainId: ${network.chainId})`);
+  });
+  console.log("Signer address:", signerAddress);
   const currentOwner = await ProxyAdmin.owner();
   console.log("Current ProxyAdmin owner:", currentOwner);
 

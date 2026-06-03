@@ -20,6 +20,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
+import "./interfaces/IBridgeable.sol";
 import "./interfaces/IEmberVaultValidator.sol";
 import "./interfaces/IWETH.sol";
 import "./libraries/Math.sol"; // FixedPointMath library
@@ -36,6 +37,8 @@ error IndexOutOfBounds();
 error UseRedeemShares();
 error ETHTransferFailed();
 error InvalidWETHAddress();
+error BridgeAmountTooSmall();
+error BridgeAmountTooLarge();
 
 /**
  * @title EmberETHVault
@@ -60,7 +63,8 @@ contract EmberETHVault is
   ERC4626Upgradeable,
   UUPSUpgradeable,
   OwnableUpgradeable,
-  ReentrancyGuardUpgradeable
+  ReentrancyGuardUpgradeable,
+  IBridgeable
 {
   using SafeERC20 for IERC20;
 
@@ -142,6 +146,15 @@ contract EmberETHVault is
   WithdrawalRequest[] public pendingWithdrawals;
   uint256 private withdrawalQueueStartIndex;
   mapping(address => Account) public accounts;
+
+  /// @notice The authorized bridge adapter for cross-chain mint/burn operations
+  address public bridgeAdapter;
+
+  /// @notice Minimum amount for bridge operations (0 = no minimum)
+  uint256 public minBridgeAmount;
+
+  /// @notice Maximum amount for bridge operations (0 = no maximum)
+  uint256 public maxBridgeAmount;
 
   // Events (identical to EmberVault)
   event VaultCreated(
@@ -355,6 +368,44 @@ contract EmberETHVault is
 
   event ETHWrapped(uint256 amount);
 
+  /// @notice Emitted when the bridge adapter is updated
+  event BridgeAdapterUpdated(
+    address indexed vault,
+    address indexed previousAdapter,
+    address indexed newAdapter,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  /// @notice Emitted when bridge limits are updated
+  event BridgeLimitsUpdated(
+    address indexed vault,
+    uint256 minBridgeAmount,
+    uint256 maxBridgeAmount,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  /// @notice Emitted when tokens are minted via bridge
+  event BridgeMint(
+    address indexed vault,
+    address indexed to,
+    uint256 amount,
+    uint256 totalShares,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  /// @notice Emitted when tokens are burned via bridge
+  event BridgeBurn(
+    address indexed vault,
+    address indexed from,
+    uint256 amount,
+    uint256 totalShares,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
   // Modifiers
   modifier onlyOperator() {
     if (msg.sender != roles.operator) revert Unauthorized();
@@ -378,6 +429,12 @@ contract EmberETHVault is
 
   modifier onlyOwnerCaller(address caller) {
     if (caller != owner()) revert Unauthorized();
+    _;
+  }
+
+  /// @notice Only the bridge adapter can call this function
+  modifier onlyBridgeAdapter() {
+    if (msg.sender != bridgeAdapter) revert Unauthorized();
     _;
   }
 
@@ -419,11 +476,12 @@ contract EmberETHVault is
 
     if (
       params.rateUpdateInterval < configProxy.getMinRateInterval() ||
-      params.rateUpdateInterval > configProxy.getMaxRateInterval() ||
-      params.rateUpdateInterval == configProxy.getMinRateInterval()
+      params.rateUpdateInterval > configProxy.getMaxRateInterval()
     ) revert InvalidInterval();
 
-    if (params.feePercentage >= configProxy.getMaxAllowedFeePercentage()) revert InvalidValue();
+    if (params.maxRateChangePerUpdate == 0) revert InvalidRate();
+
+    if (params.feePercentage > configProxy.getMaxAllowedFeePercentage()) revert InvalidValue();
 
     // Initialize ERC4626 with WETH as the underlying asset
     __ERC20_init(params.name, params.receiptTokenSymbol);
@@ -731,8 +789,9 @@ contract EmberETHVault is
 
     if (shares == 0) revert ZeroAmount();
 
-    // Calculate assets needed using rate-based conversion
-    assets = convertToAssets(shares);
+    // Calculate assets needed using rate-based conversion with Ceil rounding so the
+    // protocol never undercollects on mint (matches EmberVault._mintShares semantics).
+    assets = _convertToAssets(shares, Math.Rounding.Ceil);
 
     if (assets == 0) revert ZeroAmount();
 
@@ -893,6 +952,11 @@ contract EmberETHVault is
     address caller,
     uint256 newFeePercentage
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    // Settle accrued fees at the OLD percentage before mutating, so prior elapsed time
+    // is not retroactively re-priced at the new rate. Cap is enforced upstream by
+    // EmberProtocolConfig.updateVaultFeePercentage; this entry is onlyProtocolConfig.
+    _chargeAccruedPlatformFees();
+
     uint256 previousFeePercentage = platformFee.platformFeePercentage;
     platformFee.platformFeePercentage = newFeePercentage;
     _incrementSequence();
@@ -964,11 +1028,18 @@ contract EmberETHVault is
   ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
     bytes32 operationHash = keccak256(bytes(operation));
 
+    bool currentStatus;
     if (operationHash == DEPOSITS_HASH) {
+      currentStatus = pauseStatus.deposits;
+      if (currentStatus == paused) revert SameValue();
       pauseStatus.deposits = paused;
     } else if (operationHash == WITHDRAWALS_HASH) {
+      currentStatus = pauseStatus.withdrawals;
+      if (currentStatus == paused) revert SameValue();
       pauseStatus.withdrawals = paused;
     } else if (operationHash == PRIVILEGED_OPS_HASH) {
+      currentStatus = pauseStatus.privilegedOperations;
+      if (currentStatus == paused) revert SameValue();
       pauseStatus.privilegedOperations = paused;
     } else {
       revert InvalidValue();
@@ -979,6 +1050,130 @@ contract EmberETHVault is
       address(this),
       operation,
       paused,
+      _getChainTimestampMs(),
+      sequenceNumber
+    );
+  }
+
+  /// @notice Sets the authorized bridge adapter for cross-chain operations
+  /// @dev Only callable by protocol config, caller must be admin
+  /// @param caller The original caller address (must be admin)
+  /// @param newAdapter The new bridge adapter address (can be zero to disable)
+  function setBridgeAdapter(
+    address caller,
+    address newAdapter
+  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    address previousAdapter = bridgeAdapter;
+    if (previousAdapter == newAdapter) revert SameValue();
+
+    bridgeAdapter = newAdapter;
+
+    unchecked {
+      sequenceNumber++;
+    }
+
+    emit BridgeAdapterUpdated(
+      address(this),
+      previousAdapter,
+      newAdapter,
+      _getChainTimestampMs(),
+      sequenceNumber
+    );
+  }
+
+  /// @notice Sets the minimum and maximum bridge amounts
+  /// @dev Only callable by protocol config, caller must be admin
+  /// @param caller The original caller address (must be admin)
+  /// @param _minBridgeAmount The minimum amount for bridge operations (0 = no minimum)
+  /// @param _maxBridgeAmount The maximum amount for bridge operations (0 = no maximum)
+  function setBridgeLimits(
+    address caller,
+    uint256 _minBridgeAmount,
+    uint256 _maxBridgeAmount
+  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    minBridgeAmount = _minBridgeAmount;
+    maxBridgeAmount = _maxBridgeAmount;
+
+    unchecked {
+      sequenceNumber++;
+    }
+
+    emit BridgeLimitsUpdated(
+      address(this),
+      _minBridgeAmount,
+      _maxBridgeAmount,
+      _getChainTimestampMs(),
+      sequenceNumber
+    );
+  }
+
+  // ============================================
+  // Bridge Functions
+  // ============================================
+
+  /// @notice Mints shares to a recipient for cross-chain bridging
+  /// @dev Only callable by the authorized bridge adapter
+  /// @param to The recipient address
+  /// @param amount The amount of shares to mint
+  function bridgeMint(address to, uint256 amount) external nonReentrant onlyBridgeAdapter {
+    if (to == address(0)) revert ZeroAddress();
+    if (amount == 0) revert ZeroAmount();
+
+    // Settle accrued fees against the OLD totalSupply before minting changes TVL.
+    _chargeAccruedPlatformFees();
+
+    // Mint shares directly (bypassing deposit flow for bridge operations)
+    _mint(to, amount);
+
+    unchecked {
+      sequenceNumber++;
+    }
+
+    uint256 totalShares = totalSupply();
+
+    emit BridgeMint(address(this), to, amount, totalShares, _getChainTimestampMs(), sequenceNumber);
+  }
+
+  /// @notice Burns shares from an account for cross-chain bridging
+  /// @dev Only callable by the authorized bridge adapter
+  /// @param from The account to burn from
+  /// @param amount The amount of shares to burn
+  function bridgeBurn(address from, uint256 amount) external nonReentrant onlyBridgeAdapter {
+    if (from == address(0)) revert ZeroAddress();
+    if (amount == 0) revert ZeroAmount();
+    if (balanceOf(from) < amount) revert InsufficientShares();
+
+    IEmberProtocolConfig configProxy = protocolConfig;
+
+    // Honor protocol-level pause; vault-level withdrawals pause is intentionally NOT enforced
+    // here so bridging stays available for in-flight position migration even when withdrawals
+    // are temporarily halted.
+    if (configProxy.getProtocolPauseStatus()) revert ProtocolPaused();
+
+    // Blacklist is enforced only on the send side; inbound messages must never revert.
+    if (configProxy.isAccountBlacklisted(from)) revert Blacklisted();
+
+    // Enforce bridge amount limits
+    if (minBridgeAmount > 0 && amount < minBridgeAmount) revert BridgeAmountTooSmall();
+    if (maxBridgeAmount > 0 && amount > maxBridgeAmount) revert BridgeAmountTooLarge();
+
+    // Settle accrued fees against the OLD totalSupply before burning changes TVL.
+    _chargeAccruedPlatformFees();
+
+    // Burn shares directly (bypassing withdrawal flow for bridge operations)
+    _burn(from, amount);
+
+    unchecked {
+      sequenceNumber++;
+    }
+
+    uint256 totalShares = totalSupply();
+
+    emit BridgeBurn(
+      address(this),
+      from,
+      amount,
+      totalShares,
       _getChainTimestampMs(),
       sequenceNumber
     );
@@ -1507,9 +1702,10 @@ contract EmberETHVault is
     uint256 vaultBalance = IERC20(asset()).balanceOf(address(this));
     if (amount > vaultBalance) revert InsufficientBalance();
 
-    platformFee.accrued = 0;
-
     address feeRecipient = configProxy.getPlatformFeeRecipient();
+    if (feeRecipient == address(0)) revert ZeroAddress();
+
+    platformFee.accrued = 0;
 
     // Transfer WETH to platform fee recipient (NOT unwrapped)
     IERC20(asset()).safeTransfer(feeRecipient, amount);
@@ -1545,8 +1741,19 @@ contract EmberETHVault is
     uint256 currentTotalAssets = totalAssets();
     uint256 feePercentage = platformFee.platformFeePercentage;
 
-    uint256 accruedFee = (currentTotalAssets * feePercentage * timeSinceLastCharge) /
-      FEE_DENOMINATOR;
+    // Exclude already-accrued fees from the TVL used for fee calculation so fees
+    // do not compound on themselves. Mirrors EmberVault._chargeAccruedPlatformFees.
+    uint256 alreadyAccrued = platformFee.accrued;
+    uint256 tvlForFeeCalc = currentTotalAssets > alreadyAccrued
+      ? currentTotalAssets - alreadyAccrued
+      : 0;
+
+    if (tvlForFeeCalc == 0) {
+      platformFee.lastChargedAt = currentTime;
+      return;
+    }
+
+    uint256 accruedFee = (tvlForFeeCalc * feePercentage * timeSinceLastCharge) / FEE_DENOMINATOR;
 
     if (accruedFee > 0) {
       platformFee.accrued += accruedFee;
@@ -1646,7 +1853,7 @@ contract EmberETHVault is
    * @notice Get vault version
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.0.0-eth";
+    return "v2.1.0-eth";
   }
 
   /**
