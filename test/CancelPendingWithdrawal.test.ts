@@ -25,6 +25,7 @@ describe("EmberVault - Cancel Pending Withdrawal Request", function () {
   let receiver2: HardhatEthersSigner;
   let subAccount1: HardhatEthersSigner;
   let subAccount2: HardhatEthersSigner;
+  let guardian: HardhatEthersSigner;
 
   const VAULT_NAME = "Test Vault";
   const RATE_UPDATE_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -47,6 +48,7 @@ describe("EmberVault - Cancel Pending Withdrawal Request", function () {
       receiver2,
       subAccount1,
       subAccount2,
+      guardian,
     ] = await ethers.getSigners();
 
     // Deploy Protocol Config
@@ -57,6 +59,8 @@ describe("EmberVault - Cancel Pending Withdrawal Request", function () {
       { initializer: "initialize", kind: "uups" }
     )) as EmberProtocolConfig;
     await protocolConfig.waitForDeployment();
+
+    await protocolConfig.connect(owner).setGuardian(guardian.address);
 
     // Deploy Collateral Token
     const collateralFactory = await ethers.getContractFactory("ERC20Token");
@@ -365,7 +369,7 @@ describe("EmberVault - Cancel Pending Withdrawal Request", function () {
       const sequenceNumber = request.sequenceNumber;
 
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
 
       await expect(
@@ -374,7 +378,7 @@ describe("EmberVault - Cancel Pending Withdrawal Request", function () {
 
       // Unpause for cleanup
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "withdrawals", false);
     });
 
@@ -383,7 +387,7 @@ describe("EmberVault - Cancel Pending Withdrawal Request", function () {
       const pauseStatus = await vault.pauseStatus();
       if (pauseStatus.withdrawals) {
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", false);
       }
 
@@ -402,7 +406,7 @@ describe("EmberVault - Cancel Pending Withdrawal Request", function () {
 
     it("should allow cancel when deposits are paused but withdrawals are not", async function () {
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
       const sharesToRedeem = ethers.parseUnits("1000", 18);
@@ -419,7 +423,7 @@ describe("EmberVault - Cancel Pending Withdrawal Request", function () {
 
       // Unpause for cleanup
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
     });
   });

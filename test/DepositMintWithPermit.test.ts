@@ -14,6 +14,7 @@ describe("EmberVault - Deposit and Mint with Permit", function () {
   let feeRecipient: HardhatEthersSigner;
   let user1: HardhatEthersSigner;
   let user2: HardhatEthersSigner;
+  let guardian: HardhatEthersSigner;
 
   const VAULT_NAME = "Test Vault";
   const COLLATERAL_TOKEN_NAME = "Test USD Coin";
@@ -27,7 +28,8 @@ describe("EmberVault - Deposit and Mint with Permit", function () {
   const MAX_TVL = ethers.parseUnits("10000000", 6);
 
   beforeEach(async function () {
-    [owner, admin, operator, rateManager, feeRecipient, user1, user2] = await ethers.getSigners();
+    [owner, admin, operator, rateManager, feeRecipient, user1, user2, guardian] =
+      await ethers.getSigners();
 
     // Deploy collateral token with permit support
     const collateralFactory = await ethers.getContractFactory("ERC20Token");
@@ -48,6 +50,8 @@ describe("EmberVault - Deposit and Mint with Permit", function () {
       { kind: "uups" }
     )) as EmberProtocolConfig;
     await protocolConfig.waitForDeployment();
+
+    await protocolConfig.connect(owner).setGuardian(guardian.address);
 
     // Deploy vault
     const EmberVaultFactory = await ethers.getContractFactory("EmberVault");
@@ -402,7 +406,7 @@ describe("EmberVault - Deposit and Mint with Permit", function () {
 
         // Pause deposits
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
         const nonce = await collateralToken.nonces(user1.address);
@@ -817,7 +821,7 @@ describe("EmberVault - Deposit and Mint with Permit", function () {
 
         // Pause deposits
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
         const assetsRequired = await vault.previewMint(sharesToMint);

@@ -52,14 +52,26 @@ contract EmberProtocolConfig is
   /// @notice list of all blacklisted addresses
   mapping(address => bool) public blacklistedAccounts;
 
+  /// @notice Emergency-response role with a narrow surface (blacklist + pause).
+  ///         Settable by `setGuardian` (onlyOwner). When set to address(0)
+  ///         the guardian-gated functions are unreachable.
+  address public guardian;
+
   /**
    * @dev Reserved storage gap for future upgrades.
    * This allows adding new state variables without shifting storage slots.
    * See: https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
    */
-  uint256[50] private __gap;
+  uint256[49] private __gap;
 
   // Events are inherited from IEmberProtocolConfig
+
+  /// @notice Restricts a function to the configured guardian. If `guardian`
+  ///         is address(0) (unset), this naturally rejects all callers.
+  modifier onlyGuardian() {
+    if (msg.sender != guardian) revert Unauthorized();
+    _;
+  }
 
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
@@ -174,6 +186,41 @@ contract EmberProtocolConfig is
     address account,
     bool blacklisted
   ) external nonReentrant onlyOwner {
+    if (account == address(0)) revert ZeroAddress();
+    if (blacklistedAccounts[account] == blacklisted) revert SameValue();
+    blacklistedAccounts[account] = blacklisted;
+    emit BlacklistedAccountUpdated(account, blacklisted);
+  }
+
+  // ============================================
+  // Guardian Functions
+  // ============================================
+
+  /// @notice Sets the guardian address. Pass address(0) to disable
+  ///         guardian-gated functions entirely.
+  function setGuardian(address newGuardian) external nonReentrant onlyOwner {
+    if (newGuardian == guardian) revert SameValue();
+    address previous = guardian;
+    guardian = newGuardian;
+    emit GuardianUpdated(previous, newGuardian);
+  }
+
+  /// @notice Guardian fast-path for `pauseNonAdminOperations`. Behaves
+  ///         identically to the owner version but is callable without
+  ///         going through the timelock.
+  function guardianPauseNonAdminOperations(bool pauseFlag) external nonReentrant onlyGuardian {
+    if (pauseFlag == protocolConfig.pause) revert SameValue();
+    protocolConfig.pause = pauseFlag;
+    emit PauseNonAdminOperations(pauseFlag);
+  }
+
+  /// @notice Guardian fast-path for `setBlacklistedAccount`. Behaves
+  ///         identically to the owner version but is callable without
+  ///         going through the timelock.
+  function guardianSetBlacklistedAccount(
+    address account,
+    bool blacklisted
+  ) external nonReentrant onlyGuardian {
     if (account == address(0)) revert ZeroAddress();
     if (blacklistedAccounts[account] == blacklisted) revert SameValue();
     blacklistedAccounts[account] = blacklisted;
@@ -352,7 +399,10 @@ contract EmberProtocolConfig is
   }
 
   /// @notice Sets the pause status for a specific operation on a vault
-  /// @dev Forwards to vault which verifies caller is admin
+  /// @dev Gated by the protocol guardian (not vault admin) so emergency pause
+  ///      stays instant even after the vault admin role is moved behind the
+  ///      timelock. The vault itself only checks `onlyProtocolConfig` — the
+  ///      authorization is enforced here.
   /// @param vault The vault address
   /// @param operation The operation to pause/unpause: "deposits", "withdrawals", or "privilegedOperations"
   /// @param paused True to pause, false to unpause
@@ -360,7 +410,7 @@ contract EmberProtocolConfig is
     address vault,
     string calldata operation,
     bool paused
-  ) external nonReentrant {
+  ) external nonReentrant onlyGuardian {
     IEmberVault(vault).setPausedStatus(msg.sender, operation, paused);
   }
 

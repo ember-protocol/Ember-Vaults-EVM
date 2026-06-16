@@ -27,6 +27,7 @@ describe("EmberVault - Process Withdrawals", function () {
   let blacklistedUser: HardhatEthersSigner;
   let subAccount1: HardhatEthersSigner;
   let subAccount2: HardhatEthersSigner;
+  let guardian: HardhatEthersSigner;
 
   const VAULT_NAME = "Test Vault";
   const RATE_UPDATE_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -52,6 +53,7 @@ describe("EmberVault - Process Withdrawals", function () {
       blacklistedUser,
       subAccount1,
       subAccount2,
+      guardian,
     ] = await ethers.getSigners();
 
     // Deploy Protocol Config
@@ -62,6 +64,8 @@ describe("EmberVault - Process Withdrawals", function () {
       { initializer: "initialize", kind: "uups" }
     )) as EmberProtocolConfig;
     await protocolConfig.waitForDeployment();
+
+    await protocolConfig.connect(owner).setGuardian(guardian.address);
 
     // Deploy Collateral Token
     const collateralFactory = await ethers.getContractFactory("ERC20Token");
@@ -373,7 +377,7 @@ describe("EmberVault - Process Withdrawals", function () {
       await vault.connect(user1).redeemShares(shares, receiver1.address);
 
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
       await expect(
@@ -382,7 +386,7 @@ describe("EmberVault - Process Withdrawals", function () {
 
       // Unpause for cleanup
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
     });
   });

@@ -2,16 +2,6 @@
   "network": "sepolia",
   "chainId": "11155111",
   "contracts": {
-    "protocolConfig": {
-      "proxyAddress": "0x1B26Af61F71573Bd8B13E0c6787912aAe42Ef6A0",
-      "implementationAddress": "0xb0b4b9d7F51AE0fb0931AfAF1D23511797F3a41A",
-      "ownerAddress": "0x71562b71999873DB5b286dF957af199Ec94617F7",
-      "version": "v2.0.0",
-      "deployedAt": "2026-04-10T14:48:40.258Z",
-      "deploymentBlockNumber": 10630772,
-      "upgradedAt": "2026-04-10T16:40:29.289Z",
-      "upgradedInBlock": 10631308
-    },
     "depositTokens": {
       "pUSDC": {
         "proxyAddress": "0x91c11E7Ded0A9d7426158CDE11b8485019d223E9",
@@ -33,58 +23,75 @@
         "supportsPermit": true,
         "deployedAt": "2026-04-03T17:28:40.964Z",
         "deploymentBlockNumber": 10582958
+      },
+      "protocolConfig": {
+        "proxyAddress": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+        "implementationAddress": "0x37AB61ca8669C798d9cd4509139c77C8e87941e3",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "version": "v2.1.0",
+        "deployedAt": "2026-06-03T20:35:51.643Z",
+        "deploymentBlockNumber": 10983638,
+        "upgradedAt": "2026-06-03T20:42:50.303Z",
+        "upgradedInBlock": 10983671
+      },
+      "vaultValidator": {
+        "proxyAddress": "0x5C7127ed6b00329cCc548689B0364eE1327796B6",
+        "implementationAddress": "0x1Fec355130943AbED730799Ed15fE893958AaA24",
+        "protocolConfigAddress": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "version": "v1.0.0",
+        "deployedAt": "2026-06-03T20:36:25.739Z",
+        "deploymentBlockNumber": 10983641
+      },
+      "vaults": {
+        "emberSepoliaStagingVault": {
+          "proxyAddress": "0x41521F4443f402c28522280e86dDc65479e95645",
+          "implementationAddress": "0x19b6768A172634b51a3292b749Ee6714E78A2E7E",
+          "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+          "name": "Ember Sepolia Staging Vault",
+          "receiptTokenSymbol": "esepUSDC",
+          "collateralToken": "0x91c11E7Ded0A9d7426158CDE11b8485019d223E9",
+          "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+          "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+          "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+          "protocolConfig": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+          "maxTVL": "10000000000000",
+          "version": "v2.1.0",
+          "deployedAt": "2026-06-03T20:39:14.695Z",
+          "deploymentBlockNumber": 10983654,
+          "upgradedAt": "2026-06-03T20:44:28.365Z",
+          "upgradedInBlock": 10983679
+        }
+      },
+      "ethVaults": {
+        "emberSepoliaStagingEthVault": {
+          "proxyAddress": "0x83918E58d6d580F107cf60E543a43C01104B8402",
+          "implementationAddress": "0xEc84A3B7659A5C5936E2AFab7B3497F4610741Df",
+          "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+          "name": "Ember Sepolia Staging ETH Vault",
+          "receiptTokenSymbol": "esepETH",
+          "collateralToken": "0x0180bA2A01a7ED09a977B9893C0B903a70554259",
+          "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+          "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+          "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+          "protocolConfig": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+          "maxTVL": "10000000000000",
+          "version": "v2.1.0-eth",
+          "deployedAt": "2026-06-03T20:39:51.595Z",
+          "deploymentBlockNumber": 10983657,
+          "upgradedAt": "2026-06-03T20:45:13.512Z",
+          "upgradedInBlock": 10983683
+        }
+      },
+      "timelock": {
+        "address": "0xa81361Ee2e466E0F14222d63e7dd8C1F93a98f21",
+        "minDelay": "300",
+        "proposers": ["0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"],
+        "executors": ["0x0000000000000000000000000000000000000000"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-06-03T20:46:15.322Z",
+        "deploymentBlockNumber": 10983687
       }
-    },
-    "vaults": {
-      "emberErc4626TestVault": {
-        "proxyAddress": "0xf01a741aAa039627CEf3d3F1e4f680A488698F35",
-        "implementationAddress": "0xeb04b9Af47DbcA4347BCAe3d044990008C7cb4d1",
-        "ownerAddress": "0x71562b71999873DB5b286dF957af199Ec94617F7",
-        "name": "Ember Erc 4626 Test Vault",
-        "receiptTokenSymbol": "e4626TST",
-        "collateralToken": "0x91c11E7Ded0A9d7426158CDE11b8485019d223E9",
-        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
-        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
-        "protocolConfig": "0x1B26Af61F71573Bd8B13E0c6787912aAe42Ef6A0",
-        "maxTVL": "2000000000000",
-        "version": "v2.0.0",
-        "deployedAt": "2026-04-10T14:51:50.874Z",
-        "deploymentBlockNumber": 10630788,
-        "upgradedAt": "2026-04-10T15:25:15.413Z",
-        "upgradedInBlock": 10630947,
-        "validatorAddress": "0xB539D626E7288e1E3c65DE8B485442a7fA551B1C"
-      }
-    },
-    "ethVaults": {
-      "emberErc4626TestEthVault": {
-        "proxyAddress": "0xc3A8730340C59ada20780867F95FA8D87c21a8DF",
-        "implementationAddress": "0xA34007eF7E844E7F13df325cCD0562b99A2a7bF9",
-        "ownerAddress": "0x71562b71999873DB5b286dF957af199Ec94617F7",
-        "name": "Ember Erc 4626 Test ETH Vault",
-        "receiptTokenSymbol": "e4626TST",
-        "collateralToken": "0x0180bA2A01a7ED09a977B9893C0B903a70554259",
-        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
-        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
-        "protocolConfig": "0x1B26Af61F71573Bd8B13E0c6787912aAe42Ef6A0",
-        "maxTVL": "2000000000000",
-        "version": "v2.0.0-eth",
-        "deployedAt": "2026-04-10T14:53:42.833Z",
-        "deploymentBlockNumber": 10630795,
-        "upgradedAt": "2026-04-10T15:32:03.458Z",
-        "upgradedInBlock": 10630981,
-        "validatorAddress": "0xB539D626E7288e1E3c65DE8B485442a7fA551B1C"
-      }
-    },
-    "vaultValidator": {
-      "proxyAddress": "0xB539D626E7288e1E3c65DE8B485442a7fA551B1C",
-      "implementationAddress": "0x1Fec355130943AbED730799Ed15fE893958AaA24",
-      "protocolConfigAddress": "0x1B26Af61F71573Bd8B13E0c6787912aAe42Ef6A0",
-      "ownerAddress": "0x71562b71999873DB5b286dF957af199Ec94617F7",
-      "version": "v1.0.0",
-      "deployedAt": "2026-04-10T15:21:04.852Z",
-      "deploymentBlockNumber": 10630926
     }
   }
 }

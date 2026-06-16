@@ -1021,11 +1021,18 @@ contract EmberETHVault is
     );
   }
 
+  /// @notice Sets the pause status for a specific operation
+  /// @dev Only callable by protocol config. Authorization (guardian-only) is
+  ///      enforced in `EmberProtocolConfig.setVaultPausedStatus` to keep this
+  ///      contract under the EVM size limit. The first parameter is retained
+  ///      for ABI compatibility with the forwarder but is not used here.
+  /// @param operation The operation to pause/unpause: "deposits", "withdrawals", or "privilegedOperations"
+  /// @param paused True to pause, false to unpause
   function setPausedStatus(
-    address caller,
+    address /* caller */,
     string calldata operation,
     bool paused
-  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+  ) external nonReentrant onlyProtocolConfig {
     bytes32 operationHash = keccak256(bytes(operation));
 
     bool currentStatus;

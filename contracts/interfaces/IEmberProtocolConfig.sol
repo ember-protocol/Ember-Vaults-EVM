@@ -39,6 +39,12 @@ interface IEmberProtocolConfig {
   function updateMaxRateInterval(uint256 maxRateInterval_) external;
   function setBlacklistedAccount(address account, bool blacklisted) external;
 
+  // Guardian functions
+  function guardian() external view returns (address);
+  function setGuardian(address newGuardian) external;
+  function guardianPauseNonAdminOperations(bool pauseFlag) external;
+  function guardianSetBlacklistedAccount(address account, bool blacklisted) external;
+
   // Vault admin functions
   function updateVaultMaxTVL(address vault, uint256 newMaxTVL) external;
   function updateVaultRateUpdateInterval(address vault, uint256 newInterval) external;
@@ -82,4 +88,5 @@ interface IEmberProtocolConfig {
   event MaxRateIntervalUpdated(uint256 previousInterval, uint256 newInterval);
   event MaxAllowedFeePercentageUpdated(uint256 previousFee, uint256 newFee);
   event BlacklistedAccountUpdated(address indexed account, bool isBlacklisted);
+  event GuardianUpdated(address indexed previousGuardian, address indexed newGuardian);
 }

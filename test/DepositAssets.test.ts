@@ -23,6 +23,7 @@ describe("EmberVault - Deposits", function () {
   let user3: HardhatEthersSigner;
   let subAccount1: HardhatEthersSigner;
   let subAccount2: HardhatEthersSigner;
+  let guardian: HardhatEthersSigner;
 
   const VAULT_NAME = "Test Vault";
   const RATE_UPDATE_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -43,6 +44,7 @@ describe("EmberVault - Deposits", function () {
       user3,
       subAccount1,
       subAccount2,
+      guardian,
     ] = await ethers.getSigners();
 
     // Deploy Protocol Config
@@ -53,6 +55,8 @@ describe("EmberVault - Deposits", function () {
       { initializer: "initialize", kind: "uups" }
     )) as EmberProtocolConfig;
     await protocolConfig.waitForDeployment();
+
+    await protocolConfig.connect(owner).setGuardian(guardian.address);
 
     // Deploy Collateral Token
     const collateralFactory = await ethers.getContractFactory("ERC20Token");
@@ -342,7 +346,7 @@ describe("EmberVault - Deposits", function () {
   describe("Validation - Vault Pause", function () {
     it("should reject deposit when deposits are paused", async function () {
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
       const depositAmount = ethers.parseUnits("1000", 18);
@@ -354,7 +358,7 @@ describe("EmberVault - Deposits", function () {
 
       // Unpause for cleanup
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
     });
 
@@ -363,7 +367,7 @@ describe("EmberVault - Deposits", function () {
       const pauseStatus = await vault.pauseStatus();
       if (pauseStatus.deposits) {
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
       }
 

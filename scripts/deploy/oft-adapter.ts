@@ -78,6 +78,13 @@ async function main() {
   const receiptTokenAddress = vaultInfo.proxyAddress;
   const delegate = process.env.OFT_DELEGATE || deployer.address;
 
+  const protocolConfigAddress = deploymentInfo.contracts.protocolConfig?.proxyAddress;
+  if (!protocolConfigAddress) {
+    console.error("❌ Error: protocolConfig.proxyAddress missing in deployment file.");
+    console.log("Deploy the protocol config first using: yarn deploy:protocol-config");
+    process.exit(1);
+  }
+
   // Get LayerZero endpoint for this network
   let lzEndpointAddress: string;
   try {
@@ -102,6 +109,7 @@ async function main() {
   console.log("  Receipt Token Address:", receiptTokenAddress);
   console.log("  LayerZero Endpoint:", lzEndpointAddress);
   console.log("  Delegate:", delegate);
+  console.log("  Protocol Config:", protocolConfigAddress);
   console.log();
 
   // Get receipt token info
@@ -121,7 +129,12 @@ async function main() {
   const OFTAdapterFactory = await ethers.getContractFactory(contractName);
 
   console.log(`Deploying ${contractName}...`);
-  const adapter = await OFTAdapterFactory.deploy(receiptTokenAddress, lzEndpointAddress, delegate);
+  const adapter = await OFTAdapterFactory.deploy(
+    receiptTokenAddress,
+    lzEndpointAddress,
+    delegate,
+    protocolConfigAddress
+  );
 
   await adapter.waitForDeployment();
 
@@ -170,6 +183,7 @@ async function main() {
     lzEndpointAddress: lzEndpointAddress,
     delegate: delegate,
     owner: adapterOwner,
+    protocolConfig: protocolConfigAddress,
     decimalConversionRate: decimalConversionRate.toString(),
     deployedAt: new Date().toISOString(),
     deploymentBlockNumber: deploymentBlockNumber,

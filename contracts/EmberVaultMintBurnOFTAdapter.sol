@@ -27,6 +27,7 @@ import {
 import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
 
 import { IBridgeable } from "./interfaces/IBridgeable.sol";
+import { IEmberProtocolConfig } from "./interfaces/IEmberProtocolConfig.sol";
 
 /**
  * @title EmberVaultMintBurnOFTAdapter
@@ -65,6 +66,8 @@ contract EmberVaultMintBurnOFTAdapter is
   // ============ Custom Errors ============
   error ComposeNotSupported();
   error InvalidMsgInspector();
+  error Unauthorized();
+  error ZeroAddress();
 
   // ============ Immutables ============
   /// @notice The bridgeable token (EmberVault) that supports mint/burn
@@ -75,6 +78,19 @@ contract EmberVaultMintBurnOFTAdapter is
 
   /// @notice Conversion rate between local decimals and shared decimals
   uint256 public immutable decimalConversionRate;
+
+  /// @notice Protocol config that owns the guardian role. Reads `guardian()`
+  ///         at call time so rotation/clear takes effect immediately on this
+  ///         adapter without redeployment.
+  IEmberProtocolConfig public immutable protocolConfig;
+
+  // ============ Modifiers ============
+  /// @notice Restricts to the protocol guardian. If guardian is address(0)
+  ///         (unset) this naturally rejects all callers.
+  modifier onlyGuardian() {
+    if (msg.sender != protocolConfig.guardian()) revert Unauthorized();
+    _;
+  }
 
   // ============ State Variables ============
   /// @notice Optional message inspector for validating messages
@@ -88,17 +104,21 @@ contract EmberVaultMintBurnOFTAdapter is
    * @param _token The address of the EmberVault (must implement IBridgeable)
    * @param _lzEndpoint The LayerZero V2 endpoint address
    * @param _delegate The delegate capable of making OApp configurations
+   * @param _protocolConfig Address of EmberProtocolConfig (source of guardian role)
    */
   constructor(
     address _token,
     address _lzEndpoint,
-    address _delegate
+    address _delegate,
+    address _protocolConfig
   ) OApp(_lzEndpoint, _delegate) Ownable(_delegate) {
+    if (_protocolConfig == address(0)) revert ZeroAddress();
     uint8 localDecimals = IERC20Metadata(_token).decimals();
     if (localDecimals < sharedDecimals()) revert InvalidLocalDecimals();
     decimalConversionRate = 10 ** (localDecimals - sharedDecimals());
     bridgeableToken = IBridgeable(_token);
     innerToken = IERC20(_token);
+    protocolConfig = IEmberProtocolConfig(_protocolConfig);
   }
 
   // ============ External View Functions ============
@@ -241,18 +261,22 @@ contract EmberVaultMintBurnOFTAdapter is
 
   /**
    * @notice Pauses outgoing bridge operations (send only)
-   * @dev Only callable by owner. Use in emergencies to halt new bridging.
-   *      In-flight messages can still be received to avoid stuck funds.
+   * @dev Only callable by the protocol guardian (`EmberProtocolConfig.guardian()`).
+   *      The owner is intentionally excluded — pause is an emergency action
+   *      and must stay instant even after the adapter owner is moved behind
+   *      the timelock. To rotate who can pause, the owner of the protocol
+   *      config calls `setGuardian` (the guardian is read at call time, so
+   *      rotation takes effect immediately without redeploying the adapter).
    */
-  function pause() external onlyOwner {
+  function pause() external onlyGuardian {
     _pause();
   }
 
   /**
    * @notice Unpauses bridge operations
-   * @dev Only callable by owner
+   * @dev Only callable by the protocol guardian (see `pause` for rationale).
    */
-  function unpause() external onlyOwner {
+  function unpause() external onlyGuardian {
     _unpause();
   }
 

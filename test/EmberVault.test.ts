@@ -22,6 +22,7 @@ describe("EmberVault", function () {
   let user2: HardhatEthersSigner;
   let subAccount1: HardhatEthersSigner;
   let subAccount2: HardhatEthersSigner;
+  let guardian: HardhatEthersSigner;
 
   const VAULT_NAME = "Test Vault";
   const MIN_RATE_INTERVAL = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -33,8 +34,18 @@ describe("EmberVault", function () {
   const MAX_TVL = ethers.parseUnits("1000000", 18);
 
   beforeEach(async function () {
-    [owner, admin, operator, rateManager, feeRecipient, user1, user2, subAccount1, subAccount2] =
-      await ethers.getSigners();
+    [
+      owner,
+      admin,
+      operator,
+      rateManager,
+      feeRecipient,
+      user1,
+      user2,
+      subAccount1,
+      subAccount2,
+      guardian,
+    ] = await ethers.getSigners();
 
     // Deploy Protocol Config
     const configFactory = await ethers.getContractFactory("EmberProtocolConfig");
@@ -44,6 +55,9 @@ describe("EmberVault", function () {
       { initializer: "initialize", kind: "uups" }
     )) as EmberProtocolConfig;
     await protocolConfig.waitForDeployment();
+
+    // Install guardian so vault pause flows have an authorized caller.
+    await protocolConfig.connect(owner).setGuardian(guardian.address);
 
     // Deploy Collateral Token
     const collateralFactory = await ethers.getContractFactory("ERC20Token");
@@ -3922,11 +3936,11 @@ describe("EmberVault", function () {
 
   describe("setVaultPausedStatus", function () {
     describe("Success Cases - Deposits", function () {
-      it("should allow admin to pause deposits", async function () {
+      it("should allow guardian to pause deposits", async function () {
         const sequenceNumberBefore = await vault.sequenceNumber();
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
         )
           .to.emit(vault, "VaultPauseStatusUpdated")
@@ -3947,17 +3961,17 @@ describe("EmberVault", function () {
         expect(pauseStatus.privilegedOperations).to.equal(false);
       });
 
-      it("should allow admin to unpause deposits", async function () {
+      it("should allow guardian to unpause deposits", async function () {
         // First pause
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
         // Then unpause
         const sequenceNumberBefore = await vault.sequenceNumber();
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", false)
         )
           .to.emit(vault, "VaultPauseStatusUpdated")
@@ -3979,12 +3993,12 @@ describe("EmberVault", function () {
       it("should update deposits pause status without affecting other operations", async function () {
         // Pause withdrawals first
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
 
         // Pause deposits
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
         const pauseStatus = await vault.pauseStatus();
@@ -3995,11 +4009,11 @@ describe("EmberVault", function () {
     });
 
     describe("Success Cases - Withdrawals", function () {
-      it("should allow admin to pause withdrawals", async function () {
+      it("should allow guardian to pause withdrawals", async function () {
         const sequenceNumberBefore = await vault.sequenceNumber();
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true)
         )
           .to.emit(vault, "VaultPauseStatusUpdated")
@@ -4020,16 +4034,16 @@ describe("EmberVault", function () {
         expect(pauseStatus.privilegedOperations).to.equal(false);
       });
 
-      it("should allow admin to unpause withdrawals", async function () {
+      it("should allow guardian to unpause withdrawals", async function () {
         // First pause
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
 
         // Then unpause
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "withdrawals", false)
         ).to.emit(vault, "VaultPauseStatusUpdated");
 
@@ -4040,12 +4054,12 @@ describe("EmberVault", function () {
       it("should update withdrawals pause status without affecting other operations", async function () {
         // Pause deposits first
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
         // Pause withdrawals
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
 
         const pauseStatus = await vault.pauseStatus();
@@ -4056,11 +4070,11 @@ describe("EmberVault", function () {
     });
 
     describe("Success Cases - Privileged Operations", function () {
-      it("should allow admin to pause privileged operations", async function () {
+      it("should allow guardian to pause privileged operations", async function () {
         const sequenceNumberBefore = await vault.sequenceNumber();
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true)
         )
           .to.emit(vault, "VaultPauseStatusUpdated")
@@ -4081,16 +4095,16 @@ describe("EmberVault", function () {
         expect(pauseStatus.withdrawals).to.equal(false);
       });
 
-      it("should allow admin to unpause privileged operations", async function () {
+      it("should allow guardian to unpause privileged operations", async function () {
         // First pause
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
         // Then unpause
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false)
         ).to.emit(vault, "VaultPauseStatusUpdated");
 
@@ -4101,15 +4115,15 @@ describe("EmberVault", function () {
       it("should update privileged operations pause status without affecting other operations", async function () {
         // Pause deposits and withdrawals first
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
 
         // Pause privileged operations
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
         const pauseStatus = await vault.pauseStatus();
@@ -4122,13 +4136,13 @@ describe("EmberVault", function () {
     describe("Success Cases - Multiple Operations", function () {
       it("should allow pausing all operations independently", async function () {
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
         const pauseStatus = await vault.pauseStatus();
@@ -4140,24 +4154,24 @@ describe("EmberVault", function () {
       it("should allow unpausing all operations independently", async function () {
         // Pause all first
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
         // Unpause all
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", false);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
 
         const pauseStatus = await vault.pauseStatus();
@@ -4169,29 +4183,29 @@ describe("EmberVault", function () {
       it("should allow toggling pause status multiple times", async function () {
         // Toggle deposits multiple times
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         expect((await vault.pauseStatus()).deposits).to.equal(true);
 
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
         expect((await vault.pauseStatus()).deposits).to.equal(false);
 
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         expect((await vault.pauseStatus()).deposits).to.equal(true);
       });
     });
 
     describe("Access Control", function () {
-      it("should reject update from non-admin", async function () {
+      it("should reject update from operator", async function () {
         await expect(
           protocolConfig
             .connect(operator)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
-        ).to.be.revertedWithCustomError(vault, "Unauthorized");
+        ).to.be.revertedWithCustomError(protocolConfig, "Unauthorized");
       });
 
       it("should reject update from rate manager", async function () {
@@ -4199,15 +4213,23 @@ describe("EmberVault", function () {
           protocolConfig
             .connect(rateManager)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
-        ).to.be.revertedWithCustomError(vault, "Unauthorized");
+        ).to.be.revertedWithCustomError(protocolConfig, "Unauthorized");
       });
 
-      it("should reject update from owner (if not admin)", async function () {
+      it("should reject update from owner (only guardian can pause)", async function () {
         await expect(
           protocolConfig
             .connect(owner)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
-        ).to.be.revertedWithCustomError(vault, "Unauthorized");
+        ).to.be.revertedWithCustomError(protocolConfig, "Unauthorized");
+      });
+
+      it("should reject update from admin (only guardian can pause)", async function () {
+        await expect(
+          protocolConfig
+            .connect(admin)
+            .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
+        ).to.be.revertedWithCustomError(protocolConfig, "Unauthorized");
       });
 
       it("should reject update from regular user", async function () {
@@ -4215,15 +4237,35 @@ describe("EmberVault", function () {
           protocolConfig
             .connect(user1)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
-        ).to.be.revertedWithCustomError(vault, "Unauthorized");
+        ).to.be.revertedWithCustomError(protocolConfig, "Unauthorized");
       });
 
-      it("should allow update from admin", async function () {
+      it("should allow update from guardian", async function () {
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
         ).to.emit(vault, "VaultPauseStatusUpdated");
+      });
+
+      it("should reject update from former guardian after rotation", async function () {
+        await protocolConfig.connect(owner).setGuardian(user2.address);
+        await expect(
+          protocolConfig
+            .connect(guardian)
+            .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
+        ).to.be.revertedWithCustomError(protocolConfig, "Unauthorized");
+      });
+
+      it("should reject all callers when guardian is cleared to address(0)", async function () {
+        await protocolConfig.connect(owner).setGuardian(ethers.ZeroAddress);
+        for (const signer of [guardian, admin, owner, operator, user1]) {
+          await expect(
+            protocolConfig
+              .connect(signer)
+              .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
+          ).to.be.revertedWithCustomError(protocolConfig, "Unauthorized");
+        }
       });
     });
 
@@ -4231,27 +4273,27 @@ describe("EmberVault", function () {
       it("should reject invalid operation name", async function () {
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "invalidOperation", true)
         ).to.be.revertedWithCustomError(vault, "InvalidValue");
       });
 
       it("should reject empty operation name", async function () {
         await expect(
-          protocolConfig.connect(admin).setVaultPausedStatus(await vault.getAddress(), "", true)
+          protocolConfig.connect(guardian).setVaultPausedStatus(await vault.getAddress(), "", true)
         ).to.be.revertedWithCustomError(vault, "InvalidValue");
       });
 
       it("should reject same status when pausing", async function () {
         // Pause first
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
         // Try to pause again
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
         ).to.be.revertedWithCustomError(vault, "SameValue");
       });
@@ -4263,7 +4305,7 @@ describe("EmberVault", function () {
         // Try to unpause again
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", false)
         ).to.be.revertedWithCustomError(vault, "SameValue");
       });
@@ -4271,20 +4313,20 @@ describe("EmberVault", function () {
       it("should maintain pause status after failed update attempts", async function () {
         // Pause deposits
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         expect((await vault.pauseStatus()).deposits).to.equal(true);
 
         // Try invalid updates
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "invalidOperation", true)
         ).to.be.reverted;
 
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true) // Same status
         ).to.be.reverted;
 
@@ -4296,21 +4338,21 @@ describe("EmberVault", function () {
         // Should reject uppercase
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "DEPOSITS", true)
         ).to.be.revertedWithCustomError(vault, "InvalidValue");
 
         // Should reject mixed case
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "Deposits", true)
         ).to.be.revertedWithCustomError(vault, "InvalidValue");
 
         // Should accept lowercase
         await expect(
           protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "deposits", true)
         ).to.emit(vault, "VaultPauseStatusUpdated");
       });
@@ -4329,36 +4371,36 @@ describe("EmberVault", function () {
       it("should handle rapid successive updates", async function () {
         // Test deposits
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         let pauseStatus = await vault.pauseStatus();
         expect(pauseStatus.deposits).to.equal(true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
         pauseStatus = await vault.pauseStatus();
         expect(pauseStatus.deposits).to.equal(false);
 
         // Test withdrawals
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
         pauseStatus = await vault.pauseStatus();
         expect(pauseStatus.withdrawals).to.equal(true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", false);
         pauseStatus = await vault.pauseStatus();
         expect(pauseStatus.withdrawals).to.equal(false);
 
         // Test privilegedOperations
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
         pauseStatus = await vault.pauseStatus();
         expect(pauseStatus.privilegedOperations).to.equal(true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
         pauseStatus = await vault.pauseStatus();
         expect(pauseStatus.privilegedOperations).to.equal(false);
@@ -4366,13 +4408,13 @@ describe("EmberVault", function () {
 
       it("should handle updating pause status multiple times in same block", async function () {
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
 
         const pauseStatus = await vault.pauseStatus();
@@ -4383,7 +4425,7 @@ describe("EmberVault", function () {
       it("should preserve pause status after reentrancy attempt", async function () {
         // This test verifies nonReentrant modifier works
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         const pauseStatus = await vault.pauseStatus();
         expect(pauseStatus.deposits).to.equal(true);
@@ -4392,24 +4434,24 @@ describe("EmberVault", function () {
       it("should handle pausing and unpausing in different orders", async function () {
         // Pause in one order
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
         // Unpause in different order
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", false);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
 
         const pauseStatus = await vault.pauseStatus();
@@ -4422,7 +4464,7 @@ describe("EmberVault", function () {
     describe("Event Verification", function () {
       it("should emit event with correct vault address", async function () {
         const tx = await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         const receipt = await tx.wait();
 
@@ -4437,7 +4479,7 @@ describe("EmberVault", function () {
 
       it("should emit event with correct operation and status when pausing", async function () {
         const tx = await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         const receipt = await tx.wait();
 
@@ -4453,12 +4495,12 @@ describe("EmberVault", function () {
       it("should emit event with correct operation and status when unpausing", async function () {
         // Pause first
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
 
         // Then unpause
         const tx = await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", false);
         const receipt = await tx.wait();
 
@@ -4473,7 +4515,7 @@ describe("EmberVault", function () {
 
       it("should emit event with valid timestamp", async function () {
         const tx = await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         const receipt = await tx.wait();
         const block = await ethers.provider.getBlock(receipt!.blockNumber);
@@ -4491,12 +4533,12 @@ describe("EmberVault", function () {
 
       it("should emit separate events for each operation", async function () {
         const tx1 = await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         const receipt1 = await tx1.wait();
 
         const tx2 = await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
         const receipt2 = await tx2.wait();
 
@@ -4524,7 +4566,7 @@ describe("EmberVault", function () {
         const maxTVLBefore = await vault.maxTVL();
 
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
         const pauseStatus = await vault.pauseStatus();
@@ -4540,7 +4582,7 @@ describe("EmberVault", function () {
       it("should work correctly with other admin functions", async function () {
         // Pause deposits
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         expect((await vault.pauseStatus()).deposits).to.equal(true);
 
@@ -4565,7 +4607,7 @@ describe("EmberVault", function () {
 
         // Then update pause status
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
         expect((await vault.pauseStatus()).withdrawals).to.equal(true);
 
@@ -4576,18 +4618,18 @@ describe("EmberVault", function () {
       it("should handle complex pause status scenarios", async function () {
         // Pause all operations
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
         // Unpause one operation
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
 
         const pauseStatus = await vault.pauseStatus();
@@ -4996,7 +5038,7 @@ describe("EmberVault", function () {
       it("should reject update when privileged operations are paused", async function () {
         // Pause privileged operations
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
         // Fast forward time
@@ -5013,7 +5055,7 @@ describe("EmberVault", function () {
 
         // Unpause for cleanup
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
       });
 
@@ -5022,7 +5064,7 @@ describe("EmberVault", function () {
         const pauseStatus = await vault.pauseStatus();
         if (pauseStatus.privilegedOperations) {
           await protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
         }
 
@@ -5890,7 +5932,7 @@ describe("EmberVault", function () {
         await accumulateFees();
 
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
         await expect(vault.connect(operator).collectPlatformFee()).to.be.revertedWithCustomError(
@@ -5900,7 +5942,7 @@ describe("EmberVault", function () {
 
         // Unpause for cleanup
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
       });
 
@@ -5911,7 +5953,7 @@ describe("EmberVault", function () {
         const pauseStatus = await vault.pauseStatus();
         if (pauseStatus.privilegedOperations) {
           await protocolConfig
-            .connect(admin)
+            .connect(guardian)
             .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
         }
 
@@ -5925,7 +5967,7 @@ describe("EmberVault", function () {
         await accumulateFees();
 
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", true);
 
         // Should still be able to collect fees
@@ -5936,7 +5978,7 @@ describe("EmberVault", function () {
 
         // Unpause for cleanup
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "deposits", false);
       });
 
@@ -5944,7 +5986,7 @@ describe("EmberVault", function () {
         await accumulateFees();
 
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", true);
 
         // Should still be able to collect fees
@@ -5955,7 +5997,7 @@ describe("EmberVault", function () {
 
         // Unpause for cleanup
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "withdrawals", false);
       });
     });

@@ -24,6 +24,7 @@ describe("EmberVault - Withdraw From Vault Without Redeeming Shares", function (
   let subAccount1: HardhatEthersSigner;
   let subAccount2: HardhatEthersSigner;
   let nonSubAccount: HardhatEthersSigner;
+  let guardian: HardhatEthersSigner;
 
   const VAULT_NAME = "Test Vault";
   const RATE_UPDATE_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -45,6 +46,7 @@ describe("EmberVault - Withdraw From Vault Without Redeeming Shares", function (
       subAccount1,
       subAccount2,
       nonSubAccount,
+      guardian,
     ] = await ethers.getSigners();
 
     // Deploy Protocol Config
@@ -55,6 +57,8 @@ describe("EmberVault - Withdraw From Vault Without Redeeming Shares", function (
       { initializer: "initialize", kind: "uups" }
     )) as EmberProtocolConfig;
     await protocolConfig.waitForDeployment();
+
+    await protocolConfig.connect(owner).setGuardian(guardian.address);
 
     // Deploy Collateral Token
     const collateralFactory = await ethers.getContractFactory("ERC20Token");
@@ -302,7 +306,7 @@ describe("EmberVault - Withdraw From Vault Without Redeeming Shares", function (
     it("should reject withdraw when privileged operations are paused", async function () {
       // Pause privileged operations
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", true);
 
       const withdrawAmount = ethers.parseUnits("1000", 18);
@@ -315,7 +319,7 @@ describe("EmberVault - Withdraw From Vault Without Redeeming Shares", function (
 
       // Unpause for cleanup
       await protocolConfig
-        .connect(admin)
+        .connect(guardian)
         .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
     });
 
@@ -324,7 +328,7 @@ describe("EmberVault - Withdraw From Vault Without Redeeming Shares", function (
       const pauseStatus = await vault.pauseStatus();
       if (pauseStatus.privilegedOperations) {
         await protocolConfig
-          .connect(admin)
+          .connect(guardian)
           .setVaultPausedStatus(await vault.getAddress(), "privilegedOperations", false);
       }
 

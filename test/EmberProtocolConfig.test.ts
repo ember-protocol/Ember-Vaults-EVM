@@ -8,6 +8,7 @@ describe("EmberProtocolConfig", function () {
   let owner: HardhatEthersSigner;
   let unauthorized: HardhatEthersSigner;
   let feeRecipient: HardhatEthersSigner;
+  let guardian: HardhatEthersSigner;
 
   const MIN_RATE = ethers.parseUnits("0.25", 18);
   const MAX_RATE = ethers.parseUnits("5", 18);
@@ -17,7 +18,7 @@ describe("EmberProtocolConfig", function () {
   const MAX_FEE_PERCENTAGE = ethers.parseUnits("0.1", 18);
 
   beforeEach(async function () {
-    [owner, unauthorized, feeRecipient] = await ethers.getSigners();
+    [owner, unauthorized, feeRecipient, guardian] = await ethers.getSigners();
 
     const configFactory = await ethers.getContractFactory("EmberProtocolConfig");
     config = (await upgrades.deployProxy(configFactory, [owner.address, feeRecipient.address], {
@@ -142,6 +143,206 @@ describe("EmberProtocolConfig", function () {
         config,
         "ProtocolPaused"
       );
+    });
+  });
+
+  describe("Guardian role", function () {
+    const victim = ethers.Wallet.createRandom().address;
+
+    describe("setGuardian", function () {
+      it("starts unset (address(0))", async function () {
+        expect(await config.guardian()).to.equal(ethers.ZeroAddress);
+      });
+
+      it("owner can set the guardian and emits GuardianUpdated", async function () {
+        await expect(config.setGuardian(guardian.address))
+          .to.emit(config, "GuardianUpdated")
+          .withArgs(ethers.ZeroAddress, guardian.address);
+        expect(await config.guardian()).to.equal(guardian.address);
+      });
+
+      it("owner can rotate the guardian", async function () {
+        await config.setGuardian(guardian.address);
+        await expect(config.setGuardian(unauthorized.address))
+          .to.emit(config, "GuardianUpdated")
+          .withArgs(guardian.address, unauthorized.address);
+        expect(await config.guardian()).to.equal(unauthorized.address);
+      });
+
+      it("owner can clear the guardian (address(0)) to disable fast paths", async function () {
+        await config.setGuardian(guardian.address);
+        await expect(config.setGuardian(ethers.ZeroAddress))
+          .to.emit(config, "GuardianUpdated")
+          .withArgs(guardian.address, ethers.ZeroAddress);
+        expect(await config.guardian()).to.equal(ethers.ZeroAddress);
+      });
+
+      it("reverts when setting same value", async function () {
+        await config.setGuardian(guardian.address);
+        await expect(config.setGuardian(guardian.address)).to.be.revertedWithCustomError(
+          config,
+          "SameValue"
+        );
+      });
+
+      it("reverts when setting same value (still unset)", async function () {
+        await expect(config.setGuardian(ethers.ZeroAddress)).to.be.revertedWithCustomError(
+          config,
+          "SameValue"
+        );
+      });
+
+      it("blocks non-owner from setting the guardian", async function () {
+        await expect(config.connect(unauthorized).setGuardian(guardian.address))
+          .to.be.revertedWithCustomError(config, "OwnableUnauthorizedAccount")
+          .withArgs(unauthorized.address);
+      });
+    });
+
+    describe("guardianPauseNonAdminOperations", function () {
+      it("reverts when guardian is unset (zero address)", async function () {
+        // Sanity: guardian unset by default; even passing-from-anyone reverts.
+        await expect(
+          config.connect(unauthorized).guardianPauseNonAdminOperations(true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+        await expect(
+          config.connect(owner).guardianPauseNonAdminOperations(true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+      });
+
+      it("rejects non-guardian (including owner) once guardian is set", async function () {
+        await config.setGuardian(guardian.address);
+        await expect(
+          config.connect(owner).guardianPauseNonAdminOperations(true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+        await expect(
+          config.connect(unauthorized).guardianPauseNonAdminOperations(true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+      });
+
+      it("guardian can toggle pause and emits PauseNonAdminOperations", async function () {
+        await config.setGuardian(guardian.address);
+
+        await expect(config.connect(guardian).guardianPauseNonAdminOperations(true))
+          .to.emit(config, "PauseNonAdminOperations")
+          .withArgs(true);
+        expect(await config.getProtocolPauseStatus()).to.be.true;
+
+        await expect(config.connect(guardian).guardianPauseNonAdminOperations(false))
+          .to.emit(config, "PauseNonAdminOperations")
+          .withArgs(false);
+        expect(await config.getProtocolPauseStatus()).to.be.false;
+      });
+
+      it("reverts when toggling to same value", async function () {
+        await config.setGuardian(guardian.address);
+        await config.connect(guardian).guardianPauseNonAdminOperations(true);
+        await expect(
+          config.connect(guardian).guardianPauseNonAdminOperations(true)
+        ).to.be.revertedWithCustomError(config, "SameValue");
+      });
+
+      it("guardian state is shared with owner pause: owner sees guardian's pause", async function () {
+        await config.setGuardian(guardian.address);
+        await config.connect(guardian).guardianPauseNonAdminOperations(true);
+        // Owner's onlyOwner version sees the same flag and rejects no-op.
+        await expect(config.pauseNonAdminOperations(true)).to.be.revertedWithCustomError(
+          config,
+          "SameValue"
+        );
+        // Owner can unpause what the guardian paused.
+        await expect(config.pauseNonAdminOperations(false))
+          .to.emit(config, "PauseNonAdminOperations")
+          .withArgs(false);
+      });
+
+      it("rejects former guardian after rotation", async function () {
+        await config.setGuardian(guardian.address);
+        await config.setGuardian(unauthorized.address);
+        await expect(
+          config.connect(guardian).guardianPauseNonAdminOperations(true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+      });
+
+      it("rejects guardian after being cleared to address(0)", async function () {
+        await config.setGuardian(guardian.address);
+        await config.setGuardian(ethers.ZeroAddress);
+        await expect(
+          config.connect(guardian).guardianPauseNonAdminOperations(true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+      });
+    });
+
+    describe("guardianSetBlacklistedAccount", function () {
+      it("reverts when guardian is unset", async function () {
+        await expect(
+          config.connect(unauthorized).guardianSetBlacklistedAccount(victim, true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+        await expect(
+          config.connect(owner).guardianSetBlacklistedAccount(victim, true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+      });
+
+      it("rejects non-guardian (including owner) once guardian is set", async function () {
+        await config.setGuardian(guardian.address);
+        await expect(
+          config.connect(owner).guardianSetBlacklistedAccount(victim, true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+        await expect(
+          config.connect(unauthorized).guardianSetBlacklistedAccount(victim, true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+      });
+
+      it("guardian can toggle blacklist and emits BlacklistedAccountUpdated", async function () {
+        await config.setGuardian(guardian.address);
+
+        await expect(config.connect(guardian).guardianSetBlacklistedAccount(victim, true))
+          .to.emit(config, "BlacklistedAccountUpdated")
+          .withArgs(victim, true);
+        expect(await config.isAccountBlacklisted(victim)).to.be.true;
+
+        await expect(config.connect(guardian).guardianSetBlacklistedAccount(victim, false))
+          .to.emit(config, "BlacklistedAccountUpdated")
+          .withArgs(victim, false);
+        expect(await config.isAccountBlacklisted(victim)).to.be.false;
+      });
+
+      it("reverts on zero account", async function () {
+        await config.setGuardian(guardian.address);
+        await expect(
+          config.connect(guardian).guardianSetBlacklistedAccount(ethers.ZeroAddress, true)
+        ).to.be.revertedWithCustomError(config, "ZeroAddress");
+      });
+
+      it("reverts on same value", async function () {
+        await config.setGuardian(guardian.address);
+        await config.connect(guardian).guardianSetBlacklistedAccount(victim, true);
+        await expect(
+          config.connect(guardian).guardianSetBlacklistedAccount(victim, true)
+        ).to.be.revertedWithCustomError(config, "SameValue");
+      });
+
+      it("guardian and owner share the same blacklist storage", async function () {
+        await config.setGuardian(guardian.address);
+        await config.connect(guardian).guardianSetBlacklistedAccount(victim, true);
+        // Owner's onlyOwner version sees the same flag and rejects no-op.
+        await expect(config.setBlacklistedAccount(victim, true)).to.be.revertedWithCustomError(
+          config,
+          "SameValue"
+        );
+        // Owner can unblacklist what the guardian blacklisted.
+        await expect(config.setBlacklistedAccount(victim, false))
+          .to.emit(config, "BlacklistedAccountUpdated")
+          .withArgs(victim, false);
+      });
+
+      it("rejects former guardian after rotation", async function () {
+        await config.setGuardian(guardian.address);
+        await config.setGuardian(unauthorized.address);
+        await expect(
+          config.connect(guardian).guardianSetBlacklistedAccount(victim, true)
+        ).to.be.revertedWithCustomError(config, "Unauthorized");
+      });
     });
   });
 
