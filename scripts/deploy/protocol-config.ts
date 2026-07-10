@@ -1,5 +1,6 @@
 import { ethers, upgrades } from "hardhat";
 import * as fs from "fs";
+import { getImplementationAddressWithRetry } from "../utils/erc1967";
 
 /**
  * Deploys the EmberProtocolConfig contract using UUPS proxy pattern
@@ -56,8 +57,8 @@ async function main() {
     console.log("📦 Deployed in block:", deploymentBlockNumber);
   }
 
-  // Get implementation address
-  const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+  // Get implementation address (retries to tolerate RPC slot-read lag, e.g. Pharos)
+  const implementationAddress = await getImplementationAddressWithRetry(proxyAddress);
   console.log("📝 Implementation address:", implementationAddress);
 
   // Get contract version

@@ -14,6 +14,8 @@ import * as fs from "fs";
 async function main() {
   console.log("\n👤 Updating Vault Admin...\n");
 
+  const isETHVault = process.env.IS_ETH_VAULT == "true";
+
   const [signer] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
   const networkName = network.name === "unknown" ? "hardhat" : network.name;
@@ -32,6 +34,12 @@ async function main() {
 
   const deploymentInfo = JSON.parse(fs.readFileSync(deploymentFileName, "utf8"));
 
+  // ETH vaults live under contracts.ethVaults and use the EmberETHVault ABI;
+  // regular vaults live under contracts.vaults and use EmberVault.
+  const vaultGroup = isETHVault ? "ethVaults" : "vaults";
+  const vaultContractName = isETHVault ? "EmberETHVault" : "EmberVault";
+  const vaultsMap = deploymentInfo.contracts?.[vaultGroup] || {};
+
   // Get parameters from environment
   const vaultKey = process.env.VAULT_KEY;
   const newAdmin = process.env.NEW_ADMIN;
@@ -42,15 +50,13 @@ async function main() {
     console.log("  VAULT_KEY   - Key of the vault in deployment file");
     console.log("  NEW_ADMIN   - Address of the new admin");
 
-    console.log("\nAvailable vaults:");
-    if (deploymentInfo.contracts.vaults) {
-      Object.keys(deploymentInfo.contracts.vaults).forEach((key) => {
-        const vault = deploymentInfo.contracts.vaults[key];
-        console.log(`  - ${key}: ${vault.name}`);
-        console.log(`      Address: ${vault.proxyAddress}`);
-        console.log(`      Current Admin: ${vault.admin}`);
-      });
-    }
+    console.log(`\nAvailable ${vaultGroup}:`);
+    Object.keys(vaultsMap).forEach((key) => {
+      const vault = vaultsMap[key];
+      console.log(`  - ${key}: ${vault.name}`);
+      console.log(`      Address: ${vault.proxyAddress}`);
+      console.log(`      Current Admin: ${vault.admin}`);
+    });
 
     process.exit(1);
   }
@@ -62,15 +68,15 @@ async function main() {
   }
 
   // Get vault info from deployment
-  const vaultInfo = deploymentInfo.contracts.vaults?.[vaultKey];
+  const vaultInfo = vaultsMap[vaultKey];
   if (!vaultInfo) {
-    console.error(`❌ Error: Vault '${vaultKey}' not found in deployment file!`);
-    console.log("\nAvailable vaults:");
-    if (deploymentInfo.contracts.vaults) {
-      Object.keys(deploymentInfo.contracts.vaults).forEach((key) => {
-        console.log(`  - ${key}`);
-      });
-    }
+    console.error(
+      `❌ Error: Vault '${vaultKey}' not found under contracts.${vaultGroup} in deployment file!`
+    );
+    console.log(`\nAvailable ${vaultGroup}:`);
+    Object.keys(vaultsMap).forEach((key) => {
+      console.log(`  - ${key}`);
+    });
     process.exit(1);
   }
 
@@ -82,7 +88,7 @@ async function main() {
   }
 
   // Get vault contract to check current state
-  const vault = await ethers.getContractAt("EmberVault", vaultInfo.proxyAddress);
+  const vault = await ethers.getContractAt(vaultContractName, vaultInfo.proxyAddress);
   const vaultRoles = await vault.roles();
   const currentAdmin = vaultRoles.admin;
   const vaultOwner = await vault.owner();
@@ -102,6 +108,7 @@ async function main() {
   console.log("Configuration:");
   console.log("  Vault Key:", vaultKey);
   console.log("  Vault Name:", vaultInfo.name);
+  console.log("  Vault Type:", isETHVault ? "ETH (EmberETHVault)" : "ERC20 (EmberVault)");
   console.log("  Vault Address:", vaultInfo.proxyAddress);
   console.log("  Protocol Config:", protocolConfigAddress);
   console.log("  Vault Owner:", vaultOwner);

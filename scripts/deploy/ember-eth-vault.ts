@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { getImplementationAddressWithRetry } from "../utils/erc1967";
 import { Interface } from "ethers";
 
 import * as fs from "fs";
@@ -171,7 +172,7 @@ async function main() {
     }
 
     // Get implementation address
-    const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+    const implementationAddress = await getImplementationAddressWithRetry(proxyAddress);
     console.log("📝 Implementation address:", implementationAddress);
 
     // Get contract version

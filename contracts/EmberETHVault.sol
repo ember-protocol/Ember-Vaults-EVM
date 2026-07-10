@@ -1860,7 +1860,7 @@ contract EmberETHVault is
    * @notice Get vault version
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.1.0-eth";
+    return "v2.2.0-eth";
   }
 
   /**

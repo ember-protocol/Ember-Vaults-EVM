@@ -106,4 +106,7 @@ interface IEmberVault {
 
   /// @notice Sets the vault validator contract address (requires admin role)
   function setVaultValidator(address caller, address _validator) external;
+
+  /// @notice Sets or clears the vault's deposit parking lot (requires admin role)
+  function setParkingLot(address caller, address newParkingLot) external;
 }

@@ -174,7 +174,19 @@ async function main() {
         const receipt = await tx.wait();
         console.log("Transaction confirmed in block:", receipt?.blockNumber);
 
-        const updatedValidator = await vault.vaultValidator();
+        // Some RPCs (base, Pharos) lag in reflecting the just-mined tx, so the
+        // verification read can return the stale (pre-update) validator. Re-read
+        // until it reflects the update before deciding success/failure.
+        let updatedValidator = await vault.vaultValidator();
+        for (
+          let attempt = 1;
+          attempt < 15 && updatedValidator.toLowerCase() !== validatorAddress.toLowerCase();
+          attempt++
+        ) {
+          console.log(`   ⏳ validator read not reflected yet, re-checking (${attempt}/15)...`);
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          updatedValidator = await vault.vaultValidator();
+        }
         if (updatedValidator.toLowerCase() !== validatorAddress.toLowerCase()) {
           throw new Error(
             `Validator verification failed. Expected ${validatorAddress} but got ${updatedValidator}`

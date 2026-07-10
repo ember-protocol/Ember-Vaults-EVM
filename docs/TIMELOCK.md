@@ -6,15 +6,22 @@ Fordefi multisig.
 
 ## What gets timelocked
 
-A single `OZ TimelockController` becomes:
+Two `OZ TimelockController`s are deployed so upgrade authority is separated
+from day-to-day vault operations:
 
-- **Owner** of every upgradeable proxy (`EmberProtocolConfig`, every vault,
-  `EmberVaultValidator`, `EmberVaultMintBurnOFTAdapter`).  
-  → all `onlyOwner` methods (incl. `upgradeToAndCall`) require schedule + delay + execute.
-- **Admin** (`roles.admin`) of every vault.  
+- **Owner timelock** becomes the **owner** of every upgradeable proxy
+  (`EmberProtocolConfig`, every vault, `EmberVaultValidator`,
+  `EmberVaultMintBurnOFTAdapter`).  
+  → all `onlyOwner` methods (incl. `upgradeToAndCall`) require schedule + delay + execute.  
+  Proposer: the upgrade multisig (audited, e.g. includes OtterSec).
+- **Admin timelock** becomes the **admin** (`roles.admin`) of every vault.  
   → all vault `onlyAdmin` methods (`setOperator`, `setRateManager`,
   `setMaxTVL`, `setSubAccountStatus`, `setVaultValidator`, …)
-  require schedule + delay + execute.
+  require schedule + delay + execute.  
+  Proposer: the operations multisig.
+
+Both are recorded under `contracts.timelocks.{owner,admin}` in the
+deployment file; every script selects which one via `TIMELOCK_KEY`.
 
 `setPausedStatus` is intentionally **not** timelocked — it is gated by the
 protocol guardian (`EmberProtocolConfig.guardian()`), not vault admin, so
@@ -28,16 +35,20 @@ EOAs for frequent operational use.
 ## Roles after deployment
 
 The `scripts/deploy/timelock.ts` script bakes the following into the
-constructor — there is no follow-up step to renounce admin or set executor
-to "open":
+constructor of **each** timelock — there is no follow-up step to renounce
+admin or set executor to "open":
 
-| Role            | Holder                              | Why                                              |
-|-----------------|-------------------------------------|--------------------------------------------------|
-| `PROPOSER`      | `0xE9F9…` (Fordefi multisig)        | Only the multisig can `schedule`/`cancel`.       |
-| `CANCELLER`     | `0xE9F9…` (granted with PROPOSER)   | Same body can cancel a scheduled op.             |
-| `EXECUTOR`      | `address(0)`                        | "Open" — anyone can `execute` after the delay.   |
-| `DEFAULT_ADMIN` | `address(0)` + the timelock itself  | No EOA admin. Role changes go through the timelock. |
-| `minDelay`      | `86400` seconds (24 h)              | Configurable via `MIN_DELAY` env at deploy time. |
+| Role            | Holder                                | Why                                                 |
+| --------------- | ------------------------------------- | --------------------------------------------------- |
+| `PROPOSER`      | the timelock's `PROPOSER` multisig    | Only the multisig can `schedule`/`cancel`.          |
+| `CANCELLER`     | same multisig (granted with PROPOSER) | Same body can cancel a scheduled op.                |
+| `EXECUTOR`      | `address(0)`                          | "Open" — anyone can `execute` after the delay.      |
+| `DEFAULT_ADMIN` | `address(0)` + the timelock itself    | No EOA admin. Role changes go through the timelock. |
+| `minDelay`      | `86400` seconds (24 h)                | Configurable via `MIN_DELAY` env at deploy time.    |
+
+For the two-timelock split the proposers differ: the **owner timelock**'s
+proposer is the upgrade multisig, the **admin timelock**'s proposer is the
+operations multisig.
 
 Setting `admin = address(0)` to the constructor renounces external admin in
 one step. Future role rotations (adding a proposer, changing the delay)
@@ -53,31 +64,41 @@ following steps work, transfer their ownership to the multisig
 contract). The ownership-transfer generator script will skip them
 otherwise.
 
-## End-to-end deployment flow
+## End-to-end deployment flow (two-timelock split)
+
+`ADMIN_MS` = current owner / ops multisig (also the admin-timelock proposer).
+`OWNER_MS` = upgrade multisig (owner-timelock proposer).
 
 ```bash
 # 0. Make sure deployments/<network>-deployment.json reflects current state.
 
-# 1. Deploy the timelock. PROPOSER is required.
-PROPOSER=0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6 \
+# 1. Deploy both timelocks. TIMELOCK_KEY routes each into contracts.timelocks.<key>.
+TIMELOCK_KEY=admin PROPOSER=$ADMIN_MS MIN_DELAY=86400 \
   yarn deploy:timelock --network mainnet
-# → writes contracts.timelock to deployments/mainnet-deployment.json
+TIMELOCK_KEY=owner PROPOSER=$OWNER_MS MIN_DELAY=86400 \
+  yarn deploy:timelock --network mainnet
+# → writes contracts.timelocks.admin and contracts.timelocks.owner
 
-# 2. Generate updateVaultAdmin txs (vault admin → timelock).
-#    MUST happen before step 3.
+# 2. Generate updateVaultAdmin txs (vault admin → ADMIN timelock).
+#    MUST happen before step 3 — while the vault owner is still ADMIN_MS.
 yarn admin:gen-timelock-admin-transfers --network mainnet
 # → deployments/mainnet-timelock-admin-transfers.json
-# Submit each `transfers[]` entry from Fordefi (multisig 0xE9F9…) to the
-# protocolConfig address. These are instant — no timelock involved yet.
+# Submit each `transfers[]` entry from ADMIN_MS to the protocolConfig
+# address. These are instant — no timelock involved yet.
 
-# 3. Generate transferOwnership txs (proxy owner → timelock).
-yarn admin:gen-timelock-transfers --network mainnet
+# 3. Generate transferOwnership txs (proxy owner → OWNER timelock).
+#    EXPECTED_SENDER is the CURRENT owner (ADMIN_MS), not the owner-timelock
+#    proposer — the new owner is the owner timelock, but the tx is sent by
+#    whoever owns the proxy today.
+EXPECTED_SENDER=$ADMIN_MS \
+  yarn admin:gen-timelock-transfers --network mainnet
 # → deployments/mainnet-timelock-transfers.json
-# Submit each `transfers[]` entry from Fordefi (multisig 0xE9F9…).
-# Each entry's `to` is the proxy itself.
+# Submit each `transfers[]` entry from ADMIN_MS. Each entry's `to` is the
+# proxy itself.
 ```
 
-After step 3, every `onlyOwner` and vault `onlyAdmin` method is timelocked.
+After step 3, every vault `onlyAdmin` method is gated by the admin timelock
+and every `onlyOwner` method (incl. upgrades) is gated by the owner timelock.
 
 ### Why this order
 
@@ -106,7 +127,8 @@ yarn hardhat console --network mainnet
 ### Upgrade a UUPS proxy
 
 ```bash
-# Generates schedule + execute tx-bytes for one upgrade.
+# Generates schedule + execute tx-bytes for one upgrade. Routes through the
+# OWNER timelock by default (override with TIMELOCK_KEY).
 CONTRACT_NAME=EmberProtocolConfig \
 PROXY_ADDRESS=0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB \
   yarn admin:gen-timelock-upgrade --network mainnet
@@ -119,11 +141,11 @@ contains:
 ```jsonc
 {
   "schedule": { "to": "<timelock>", "value": "0", "data": "0x..." },
-  "execute":  { "to": "<timelock>", "value": "0", "data": "0x..." },
-  "operationId": "0x...",       // useful for status checks
+  "execute": { "to": "<timelock>", "value": "0", "data": "0x..." },
+  "operationId": "0x...", // useful for status checks
   "delaySeconds": "86400",
   "salt": "0x...",
-  "newImpl": "0x..."
+  "newImpl": "0x...",
 }
 ```
 
@@ -145,10 +167,10 @@ encode the destination calldata yourself and wrap it in the same
 ```ts
 import { ethers } from "hardhat";
 
-const target = "0x1Dc4…";              // protocolConfig (or vault, etc.)
-const value  = 0n;
+const target = "0x1Dc4…"; // protocolConfig (or vault, etc.)
+const value = 0n;
 const payload = new ethers.Interface([
-  "function setBlacklistedAccount(address,bool)"
+  "function setBlacklistedAccount(address,bool)",
 ]).encodeFunctionData("setBlacklistedAccount", ["0xVictim…", true]);
 
 const predecessor = ethers.ZeroHash;
@@ -158,10 +180,15 @@ const tl = new ethers.Interface([
   "function schedule(address,uint256,bytes,bytes32,bytes32,uint256)",
   "function execute(address,uint256,bytes,bytes32,bytes32) payable",
 ]);
-const scheduleData = tl.encodeFunctionData("schedule",
-  [target, value, payload, predecessor, salt, 86400n]);
-const executeData = tl.encodeFunctionData("execute",
-  [target, value, payload, predecessor, salt]);
+const scheduleData = tl.encodeFunctionData("schedule", [
+  target,
+  value,
+  payload,
+  predecessor,
+  salt,
+  86400n,
+]);
+const executeData = tl.encodeFunctionData("execute", [target, value, payload, predecessor, salt]);
 ```
 
 Then:
@@ -179,9 +206,10 @@ The proposer (also granted `CANCELLER_ROLE`) can cancel before
 execution by calling `timelock.cancel(operationId)`.
 
 ```ts
-const cancelData = new ethers.Interface([
-  "function cancel(bytes32 id)"
-]).encodeFunctionData("cancel", [operationId]);
+const cancelData = new ethers.Interface(["function cancel(bytes32 id)"]).encodeFunctionData(
+  "cancel",
+  [operationId]
+);
 // multisig submits {to: timelock, data: cancelData}
 ```
 
@@ -196,29 +224,30 @@ Example: grant a second proposer
 
 ```ts
 const role = await tl.PROPOSER_ROLE();
-const grantData = new ethers.Interface([
-  "function grantRole(bytes32,address)"
-]).encodeFunctionData("grantRole", [role, "0xNewProposer"]);
+const grantData = new ethers.Interface(["function grantRole(bytes32,address)"]).encodeFunctionData(
+  "grantRole",
+  [role, "0xNewProposer"]
+);
 
 // schedule + execute (24 h apart) with target = timelock itself
 ```
 
 To raise the delay, schedule a call to the timelock's
 `updateDelay(uint256 newDelay)` with the timelock as target. The delay
-takes effect for *future* schedules; in-flight ones keep their original
+takes effect for _future_ schedules; in-flight ones keep their original
 delay.
 
 ## File map
 
-| Path                                                          | Purpose                                          |
-|---------------------------------------------------------------|--------------------------------------------------|
-| `contracts/Timelock.sol`                                      | One-line import wrapper to compile OZ's `TimelockController`. |
-| `scripts/deploy/timelock.ts`                                  | Deploys the timelock and verifies post-deploy roles. |
-| `scripts/admin/generate-timelock-admin-transfer.ts`           | Generates `updateVaultAdmin(vault, timelock)` tx-bytes per vault. |
-| `scripts/admin/generate-timelock-ownership-transfer.ts`       | Generates `transferOwnership(timelock)` tx-bytes per proxy. |
-| `scripts/admin/generate-timelock-upgrade-tx.ts`               | Generates schedule + execute tx-bytes for a UUPS upgrade. |
-| `deployments/<network>-deployment.json`                       | Adds `contracts.timelock` after step 1.          |
-| `deployments/<network>-timelock-admin-transfers.json`         | Output of step 2.                                |
-| `deployments/<network>-timelock-transfers.json`               | Output of step 3.                                |
-| `deployments/<network>-timelock-upgrade-<proxy>-<ts>.json`    | One file per generated upgrade.                  |
-| `deployments/timelocked-methods.csv`                          | Reference list of every method gated by the timelock. |
+| Path                                                       | Purpose                                                           |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| `contracts/Timelock.sol`                                   | One-line import wrapper to compile OZ's `TimelockController`.     |
+| `scripts/deploy/timelock.ts`                               | Deploys the timelock and verifies post-deploy roles.              |
+| `scripts/admin/generate-timelock-admin-transfer.ts`        | Generates `updateVaultAdmin(vault, timelock)` tx-bytes per vault. |
+| `scripts/admin/generate-timelock-ownership-transfer.ts`    | Generates `transferOwnership(timelock)` tx-bytes per proxy.       |
+| `scripts/admin/generate-timelock-upgrade-tx.ts`            | Generates schedule + execute tx-bytes for a UUPS upgrade.         |
+| `deployments/<network>-deployment.json`                    | Adds `contracts.timelocks.{owner,admin}` after step 1.            |
+| `deployments/<network>-timelock-admin-transfers.json`      | Output of step 2.                                                 |
+| `deployments/<network>-timelock-transfers.json`            | Output of step 3.                                                 |
+| `deployments/<network>-timelock-upgrade-<proxy>-<ts>.json` | One file per generated upgrade.                                   |
+| `deployments/timelocked-methods.csv`                       | Reference list of every method gated by the timelock.             |

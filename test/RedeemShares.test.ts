@@ -597,20 +597,16 @@ describe("EmberVault - Redeem Shares", function () {
   });
 
   describe("Validation - Zero Address", function () {
-    it("should handle redeem with zero receiver address", async function () {
+    it("rejects redeem with zero receiver address", async function () {
       const sharesToRedeem = ethers.parseUnits("1000", 18);
       await vault.connect(user1).approve(await vault.getAddress(), sharesToRedeem);
 
-      // The contract doesn't explicitly check for zero address receiver
-      // It only checks if receiver is blacklisted. If zero address is not blacklisted,
-      // the transaction will succeed. This is acceptable behavior.
-      // We'll test that it doesn't revert (or if it does, it's due to other reasons)
-      const tx = await vault.connect(user1).redeemShares(sharesToRedeem, ethers.ZeroAddress);
-      await tx.wait();
-
-      // Verify request was created
-      const request = await vault.pendingWithdrawals(0);
-      expect(request.receiver).to.equal(ethers.ZeroAddress);
+      // A zero-receiver request would be accepted into the FIFO queue and only revert
+      // at processing time (transfer to address(0)), wedging every request behind it.
+      // redeemShares therefore rejects it up front.
+      await expect(
+        vault.connect(user1).redeemShares(sharesToRedeem, ethers.ZeroAddress)
+      ).to.be.revertedWithCustomError(vault, "ZeroAddress");
     });
   });
 

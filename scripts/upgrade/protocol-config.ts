@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { getImplementationAddressWithRetry } from "../utils/erc1967";
 import * as fs from "fs";
 
 /**
@@ -53,7 +54,7 @@ async function main() {
   console.log("=".repeat(70));
   console.log("Proxy:", proxyAddress);
 
-  const currentImpl = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+  const currentImpl = await getImplementationAddressWithRetry(proxyAddress);
   const protocolConfig = await ethers.getContractAt("EmberProtocolConfig", proxyAddress);
   const currentVersion = await protocolConfig.version();
 
@@ -119,7 +120,7 @@ async function main() {
   console.log("✅ Upgrade confirmed in block:", upgradeReceipt?.blockNumber);
   console.log("Gas used:", upgradeReceipt?.gasUsed.toString());
 
-  const implAfter = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+  const implAfter = await getImplementationAddressWithRetry(proxyAddress);
   const versionAfter = await protocolConfig.version();
 
   console.log("\n📊 Post-Upgrade Verification:");

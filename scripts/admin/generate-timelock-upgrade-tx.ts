@@ -26,9 +26,16 @@ import * as fs from "fs";
  *                     twice (e.g. retry after cancel).
  *   - DELAY           Override the schedule's delay (must be >= timelock's
  *                     minDelay). Default: timelock.getMinDelay().
+ *   - TIMELOCK_KEY    Which entry under `contracts.timelocks` owns the proxies.
+ *                     Default: "owner".
  *
  * Output: deployments/<network>-timelock-upgrade-<proxyShort>-<ts>.json
  */
+
+/** Resolve a timelock record by key under `contracts.timelocks`. */
+function resolveTimelock(deployment: any, key: string): any | undefined {
+  return deployment.contracts?.timelocks?.[key];
+}
 async function main() {
   const network = await ethers.provider.getNetwork();
   const networkName = network.name === "unknown" ? "hardhat" : network.name;
@@ -50,9 +57,14 @@ async function main() {
     process.exit(1);
   }
   const deployment = JSON.parse(fs.readFileSync(deploymentFileName, "utf8"));
-  const timelockAddress = deployment.contracts?.timelock?.address;
+  const timelockKey = process.env.TIMELOCK_KEY?.trim() || "owner";
+  const timelockRecord = resolveTimelock(deployment, timelockKey);
+  const timelockAddress = timelockRecord?.address;
   if (!timelockAddress || !ethers.isAddress(timelockAddress)) {
-    console.error("❌ contracts.timelock.address missing — deploy the timelock first.");
+    console.error(
+      `❌ owner timelock address missing — deploy it first ` +
+        `(contracts.timelocks.${timelockKey}).`
+    );
     process.exit(1);
   }
 
@@ -185,7 +197,7 @@ async function main() {
       to: timelockAddress,
       value: "0",
       data: scheduleData,
-      submitFrom: deployment.contracts.timelock.proposers?.[0] || null,
+      submitFrom: timelockRecord?.proposers?.[0] || null,
       note: "Submit now from the proposer multisig.",
     },
     execute: {

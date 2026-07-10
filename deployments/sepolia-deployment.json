@@ -27,7 +27,7 @@
       "protocolConfig": {
         "proxyAddress": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
         "implementationAddress": "0x37AB61ca8669C798d9cd4509139c77C8e87941e3",
-        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "ownerAddress": "0x84a12DBCE24f48855206e8b1D41DAcDEa1cf54b1",
         "version": "v2.1.0",
         "deployedAt": "2026-06-03T20:35:51.643Z",
         "deploymentBlockNumber": 10983638,
@@ -91,6 +91,26 @@
         "admin": "0x0000000000000000000000000000000000000000",
         "deployedAt": "2026-06-03T20:46:15.322Z",
         "deploymentBlockNumber": 10983687
+      }
+    },
+    "timelocks": {
+      "admin": {
+        "address": "0xEC70d6a004EF556bCAeFa914fb661ec82427BD86",
+        "minDelay": "60",
+        "proposers": ["0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"],
+        "executors": ["0x0000000000000000000000000000000000000000"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-06-09T20:53:03.822Z",
+        "deploymentBlockNumber": 11024974
+      },
+      "owner": {
+        "address": "0x84a12DBCE24f48855206e8b1D41DAcDEa1cf54b1",
+        "minDelay": "60",
+        "proposers": ["0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"],
+        "executors": ["0x0000000000000000000000000000000000000000"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-06-09T20:53:26.790Z",
+        "deploymentBlockNumber": 11024976
       }
     }
   }

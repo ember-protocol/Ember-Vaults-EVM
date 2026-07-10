@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { getImplementationAddressWithRetry } from "../utils/erc1967";
 import * as fs from "fs";
 
 /**
@@ -156,7 +157,7 @@ async function main() {
 
     try {
       // Get current implementation to verify it exists
-      const currentImpl = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+      const currentImpl = await getImplementationAddressWithRetry(proxyAddress);
       console.log("   Current Implementation:", currentImpl);
 
       // Get vault contract instance
@@ -200,7 +201,7 @@ async function main() {
       console.log("   Gas used:", upgradeReceipt?.gasUsed.toString());
 
       // Verify the upgrade
-      const implAfter = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+      const implAfter = await getImplementationAddressWithRetry(proxyAddress);
       const newVersion = await vaultContract.version();
       const vaultName = await vaultContract.name();
 

@@ -1,0 +1,63 @@
+{
+  "network": "base",
+  "chainId": "8453",
+  "contracts": {
+    "protocolConfig": {
+      "proxyAddress": "0x84D88084fCC244262060440CA16720dc019d952A",
+      "implementationAddress": "0xC2Fc14Aa7087CC541f203b7F8F28dCBCE126D7eb",
+      "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
+      "version": "v2.2.0",
+      "deployedAt": "2026-06-24T11:21:38.923Z",
+      "deploymentBlockNumber": 47754996
+    },
+    "vaultValidator": {
+      "proxyAddress": "0x0029D79bE73938A6dAab5DcAac8D2b994B9666eA",
+      "implementationAddress": "0x25838366FCEcEE61f6A877F5eEBFD00db2E3D215",
+      "protocolConfigAddress": "0x84D88084fCC244262060440CA16720dc019d952A",
+      "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
+      "version": "v1.0.0",
+      "deployedAt": "2026-06-24T11:23:26.614Z",
+      "deploymentBlockNumber": 47755429
+    },
+    "timelocks": {
+      "admin": {
+        "address": "0xBB509C90c70721C4500CcfecEa6864C568B33822",
+        "minDelay": "43200",
+        "proposers": ["0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6"],
+        "executors": ["0xA2160f1dee338b921D13c9d02a7E2caDB02aF38f"],
+        "cancellers": ["0x71aA7564fAE10A393F2Bf0efA9E6350d872f07f7"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deploymentBlockNumber": 47755688
+      },
+      "owner": {
+        "address": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
+        "minDelay": "86400",
+        "proposers": ["0x203d4ceC733Dcda6eD87bd3b7aB6cb37149201C2"],
+        "executors": ["0xA2160f1dee338b921D13c9d02a7E2caDB02aF38f"],
+        "cancellers": ["0x71aA7564fAE10A393F2Bf0efA9E6350d872f07f7"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-06-24T11:38:51.299Z",
+        "deploymentBlockNumber": 47755888
+      }
+    },
+    "vaults": {
+      "emberHilbertBtc": {
+        "proxyAddress": "0x9C2dCDbDB3F0A0F628D1112bBCABD9AE75353df3",
+        "implementationAddress": "0x1980D3e76debF8cdCf0C6039937eE2B500292Fe8",
+        "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
+        "name": "Ember Hilbert BTC",
+        "receiptTokenSymbol": "hBTC",
+        "collateralToken": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+        "admin": "0xBB509C90c70721C4500CcfecEa6864C568B33822",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x84D88084fCC244262060440CA16720dc019d952A",
+        "maxTVL": "50000000001",
+        "version": "v2.2.0",
+        "deployedAt": "2026-06-24T11:43:01.125Z",
+        "deploymentBlockNumber": 47756016,
+        "validatorAddress": "0x0029D79bE73938A6dAab5DcAac8D2b994B9666eA"
+      }
+    }
+  }
+}

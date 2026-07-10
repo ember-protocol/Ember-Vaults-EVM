@@ -452,6 +452,16 @@ contract EmberProtocolConfig is
     IEmberVault(vault).setVaultValidator(msg.sender, validator);
   }
 
+  /// @notice Sets (or clears) the deposit parking lot for a vault
+  /// @dev Forwards to vault which verifies caller is the vault admin. Passing
+  ///      address(0) disables the parking-lot gate and restores permissionless
+  ///      deposits.
+  /// @param vault The vault address
+  /// @param newParkingLot The parking lot address, or address(0) to disable gating
+  function setVaultParkingLot(address vault, address newParkingLot) external nonReentrant {
+    IEmberVault(vault).setParkingLot(msg.sender, newParkingLot);
+  }
+
   function setVaultDepositAllowList(
     address vault,
     address user,
@@ -574,7 +584,7 @@ contract EmberProtocolConfig is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.1.0";
+    return "v2.2.1";
   }
 
   /// @notice Verifies that the protocol is not paused

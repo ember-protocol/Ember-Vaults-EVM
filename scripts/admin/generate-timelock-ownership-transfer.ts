@@ -27,12 +27,26 @@ import * as path from "path";
  *                              pass before submission. (Default: false; such
  *                              entries are reported but excluded from the
  *                              transfer list.)
+ *   - TIMELOCK_KEY             Which entry under `contracts.timelocks` is the
+ *                              owner timelock (the new proxy owner). Default:
+ *                              "owner".
+ *   - EXPECTED_SENDER          The multisig that currently owns the proxies and
+ *                              will submit these transferOwnership txs. This is
+ *                              decoupled from the new owner: when owner and admin
+ *                              timelocks differ, the owner timelock's proposer is
+ *                              NOT the current owner, so set this to the current
+ *                              owner multisig. Default: owner timelock proposers[0].
  */
 
 type Entry = {
   name: string;
   address: string;
 };
+
+/** Resolve a timelock record by key under `contracts.timelocks`. */
+function resolveTimelock(deployment: any, key: string): any | undefined {
+  return deployment.contracts?.timelocks?.[key];
+}
 
 const SELECTOR_TRANSFER_OWNERSHIP = "0xf2fde38b"; // transferOwnership(address)
 
@@ -72,14 +86,21 @@ async function main() {
   }
   const deployment = JSON.parse(fs.readFileSync(deploymentFileName, "utf8"));
 
-  const timelock = deployment.contracts?.timelock?.address;
+  const timelockKey = process.env.TIMELOCK_KEY?.trim() || "owner";
+  const timelockRecord = resolveTimelock(deployment, timelockKey);
+  const timelock = timelockRecord?.address;
   if (!timelock || !ethers.isAddress(timelock)) {
-    console.error("❌ contracts.timelock.address not found — deploy the timelock first.");
+    console.error(
+      `❌ owner timelock address not found — deploy it first ` +
+        `(contracts.timelocks.${timelockKey}).`
+    );
     process.exit(1);
   }
-  const expectedSender = deployment.contracts?.timelock?.proposers?.[0];
+  const expectedSender = process.env.EXPECTED_SENDER?.trim() || timelockRecord?.proposers?.[0];
   if (!expectedSender || !ethers.isAddress(expectedSender)) {
-    console.error("❌ contracts.timelock.proposers[0] missing or invalid.");
+    console.error(
+      "❌ expected sender (current proxy owner) missing — set EXPECTED_SENDER or timelock proposers[0]."
+    );
     process.exit(1);
   }
 

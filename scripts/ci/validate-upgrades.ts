@@ -46,6 +46,15 @@ function collectTargets(deployment: any): ProxyTarget[] {
     const proxy = (v as any)?.proxyAddress;
     if (proxy) targets.push({ key: `ethVaults.${k}`, address: proxy, contract: "EmberETHVault" });
   }
+  for (const [k, v] of Object.entries(c.depositParkingLots ?? {})) {
+    const proxy = (v as any)?.proxyAddress;
+    if (proxy)
+      targets.push({
+        key: `depositParkingLots.${k}`,
+        address: proxy,
+        contract: "EmberDepositParkingLot",
+      });
+  }
 
   return targets;
 }

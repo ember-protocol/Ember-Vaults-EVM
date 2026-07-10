@@ -19,6 +19,12 @@ import * as fs from "fs";
 import * as path from "path";
 import readline from "readline";
 
+// Networks that don't have Etherscan v2 coverage. For these we dispatch the
+// `verify:blockscout` subtask directly instead of `verify:verify`, so the
+// Etherscan v2 routing (which rewrites the apiURL to api.etherscan.io and
+// rejects unknown chainIds) never runs.
+const BLOCKSCOUT_NETWORKS = new Set<string>(["pharos", "atlantic"]);
+
 type ContractRecord = {
   proxyAddress?: string;
   implementationAddress?: string;
@@ -69,14 +75,47 @@ async function verifyOne(
   label: string,
   constructorArguments: unknown[] = []
 ): Promise<void> {
-  console.log(`\n🔍 Verifying ${label} at ${address}...`);
+  const useBlockscout = BLOCKSCOUT_NETWORKS.has(network.name);
+  console.log(
+    `\n🔍 Verifying ${label} at ${address} via ${
+      useBlockscout ? "Blockscout (SocialScan)" : "Etherscan v2"
+    }...`
+  );
   try {
-    await run("verify:verify", { address, constructorArguments });
+    if (useBlockscout) {
+      // Dispatch the Blockscout subtask directly. `verify:verify` would also
+      // fan out to the Etherscan provider which can't handle Pharos's chainId.
+      // The Blockscout task reads constructor args from the deployment tx
+      // automatically and does NOT accept them as a parameter — any args
+      // detected/entered above are ignored on this path.
+      await run("verify:blockscout", { address });
+    } else {
+      await run("verify:verify", { address, constructorArguments });
+    }
     console.log(`✅ ${label} verified`);
   } catch (err: any) {
     const message = err?.message ?? String(err);
     if (message.includes("Already Verified")) {
       console.log(`✓ ${label} already verified`);
+      return;
+    }
+    // Etherscan v2 paywalls `getLogs` on some chains (Base, Optimism, etc.)
+    // for free-tier API keys. The OZ upgrades plugin uses `getLogs` during
+    // proxy verification to confirm the impl pointer — when the call is
+    // rejected with "Free API access is not supported for this chain", the
+    // impl is already verified, so the proxy's "Is this a Proxy?" link
+    // can be finished manually from the explorer UI. Treat this as a
+    // soft-warn instead of a hard failure so subsequent verifications in
+    // the run aren't blocked.
+    if (
+      message.includes("Free API access is not supported for this chain") ||
+      message.includes("Failed to get logs for contract")
+    ) {
+      console.warn(
+        `⚠️  ${label}: explorer API tier blocks the proxy-link call. ` +
+          `Impl is verified; finish the proxy link manually via the ` +
+          `"Is this a Proxy?" button on the explorer.`
+      );
       return;
     }
     console.error(`❌ ${label}: ${message}`);
@@ -189,8 +228,10 @@ async function main(): Promise<void> {
 
 /**
  * Best-effort detection of constructor arguments for non-upgradeable contracts.
- * Currently knows about the OFT adapter shape; extend as new non-upgradeable
- * contract types are added to the deployment file.
+ * Add a new branch here whenever a new non-upgradeable contract type starts
+ * appearing in deployment files — the shape detector keeps verify-contracts.ts
+ * frictionless instead of forcing operators to look up constructor signatures
+ * by hand.
  */
 function collectLikelyConstructorArgs(
   record: ContractRecord
@@ -204,6 +245,21 @@ function collectLikelyConstructorArgs(
     return {
       fieldNames: ["vaultAddress", "lzEndpointAddress", "delegate"],
       values: [record.vaultAddress, record.lzEndpointAddress, record.delegate],
+    };
+  }
+  // OZ TimelockController(uint256 minDelay, address[] proposers, address[] executors, address admin)
+  // Deployment record carries an extra `cancellers` field but cancellers are
+  // granted post-construction via grantRole, NOT a constructor parameter, so
+  // we leave it out of the args tuple intentionally.
+  if (
+    (typeof record.minDelay === "string" || typeof record.minDelay === "number") &&
+    Array.isArray(record.proposers) &&
+    Array.isArray(record.executors) &&
+    typeof record.admin === "string"
+  ) {
+    return {
+      fieldNames: ["minDelay", "proposers", "executors", "admin"],
+      values: [record.minDelay, record.proposers, record.executors, record.admin],
     };
   }
   return undefined;

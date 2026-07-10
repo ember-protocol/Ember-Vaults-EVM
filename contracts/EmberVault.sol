@@ -35,6 +35,9 @@ error IndexOutOfBounds();
 error UseRedeemShares();
 error BridgeAmountTooSmall();
 error BridgeAmountTooLarge();
+/// @notice Thrown when a parking lot is set and the caller is neither the parking lot nor a
+///         validator deposit-allow-listed depositor (they must route through the parking lot).
+error UseParkingLot();
 
 /**
  * @title EmberVault
@@ -198,12 +201,20 @@ contract EmberVault is
   /// @notice Validator contract for withdrawal fees and deposit allow lists
   IEmberVaultValidator public vaultValidator;
 
+  /// @notice The EmberDepositParkingLot for this vault. When set (non-zero), direct deposits and
+  ///         mints are restricted to this address and to validator deposit-allow-listed
+  ///         depositors; everyone else must route through the parking lot (async deposits).
+  ///         address(0) (the default) keeps deposits permissionless, preserving the original
+  ///         behavior. Set by the vault owner.
+  address public parkingLot;
+
   /**
-   * @dev Reserved storage gap for future upgrades.
-   * This allows adding new state variables without shifting storage slots.
+   * @dev Reserved storage gap for future upgrades. Reduced from 49 to 48 for the appended
+   *      `parkingLot` variable (added after all pre-existing variables, consuming one former
+   *      gap slot, so the prior storage layout is unchanged — upgrade-safe).
    * See: https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
    */
-  uint256[49] private __gap;
+  uint256[48] private __gap;
 
   // Events
   /// @notice Emitted when a vault is created
@@ -469,6 +480,16 @@ contract EmberVault is
     address indexed from,
     uint256 amount,
     uint256 totalShares,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  /// @notice Emitted when the vault's parking lot is set or cleared. A non-zero value gates
+  ///         direct deposits to the parking lot; address(0) restores permissionless deposits.
+  event ParkingLotUpdated(
+    address indexed vault,
+    address indexed previousParkingLot,
+    address indexed newParkingLot,
     uint256 timestamp,
     uint256 sequenceNumber
   );
@@ -842,6 +863,29 @@ contract EmberVault is
     );
   }
 
+  /// @notice Sets (or clears) the vault's deposit parking lot.
+  /// @dev Only callable by protocol config, caller must be admin. A non-zero address
+  ///      gates direct deposits/mints to the parking lot (async-deposit mode); pass
+  ///      address(0) to restore permissionless deposits.
+  /// @param caller The original caller address (must be admin)
+  /// @param newParkingLot The parking lot address, or address(0) to disable gating
+  function setParkingLot(
+    address caller,
+    address newParkingLot
+  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    address previousParkingLot = parkingLot;
+    if (previousParkingLot == newParkingLot) revert SameValue();
+    parkingLot = newParkingLot;
+    _incrementSequence();
+    emit ParkingLotUpdated(
+      address(this),
+      previousParkingLot,
+      newParkingLot,
+      _getChainTimestampMs(),
+      sequenceNumber
+    );
+  }
+
   /// @notice Updates the vault rate
   /// @dev Only the rate manager can update the rate
   /// @param newRate The new rate value (in fixed-point format, 1e18)
@@ -1141,6 +1185,9 @@ contract EmberVault is
     // Verify user is not blacklisted
     if (configProxy.isAccountBlacklisted(shareOwner)) revert Blacklisted();
     if (configProxy.isAccountBlacklisted(receiver)) revert Blacklisted();
+    // Reject a null receiver: such a request would be queued, then revert at processing time
+    // on the transfer to address(0), freezing the FIFO withdrawal queue at the head.
+    if (receiver == address(0)) revert ZeroAddress();
 
     if (shares < minWithdrawableShares) revert InsufficientShares();
 
@@ -1306,6 +1353,13 @@ contract EmberVault is
 
     if (numRequests == 0) revert ZeroAmount();
 
+    // Settle accrued time-based fees BEFORE burning any shares. The fee base nets accrued
+    // out of TVL, and the shares redeemed here were under management for the whole elapsed
+    // window (they remain in totalSupply until burned here). Charging after the burn loop
+    // prices that window against the post-burn (smaller) TVL and under-collects. Charge
+    // first to match the instant redeem/burn path.
+    _chargeAccruedPlatformFees();
+
     // Increment sequence number
     _incrementSequence();
 
@@ -1360,9 +1414,6 @@ contract EmberVault is
       withdrawalQueueStartIndex = startIndex;
     }
 
-    // Charge accrued platform fees
-    _chargeAccruedPlatformFees();
-
     emit ProcessRequestsSummary(
       address(this),
       counters[1], // totalRequestProcessed
@@ -1400,7 +1451,7 @@ contract EmberVault is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.1.0";
+    return "v2.3.1";
   }
 
   /// @notice Get the vault name (legacy function for backwards compatibility)
@@ -1565,6 +1616,7 @@ contract EmberVault is
     uint256 assets,
     address receiver
   ) public virtual override nonReentrant returns (uint256 shares) {
+    _enforceDepositGate();
     return _deposit(assets, receiver, msg.sender);
   }
 
@@ -1588,6 +1640,7 @@ contract EmberVault is
     bytes32 r,
     bytes32 s
   ) external nonReentrant returns (uint256 shares) {
+    _enforceDepositGate();
     // Call permit on the underlying asset - reverts naturally if unsupported
     IERC20Permit(asset()).permit(msg.sender, address(this), assets, deadline, v, r, s);
     return _deposit(assets, receiver, msg.sender);
@@ -1604,6 +1657,7 @@ contract EmberVault is
     uint256 shares,
     address receiver
   ) public virtual override nonReentrant returns (uint256 assets) {
+    _enforceDepositGate();
     return _mintShares(shares, receiver, msg.sender);
   }
 
@@ -1627,6 +1681,7 @@ contract EmberVault is
     bytes32 r,
     bytes32 s
   ) external nonReentrant returns (uint256 assets) {
+    _enforceDepositGate();
     // Calculate assets required first to know the approval amount
     if (shares == 0) revert ZeroAmount();
     assets = _convertToAssets(shares, Math.Rounding.Ceil);
@@ -1757,6 +1812,23 @@ contract EmberVault is
     emit VaultPlatformFeeCharged(address(this), feeAmount, newAccrued, currentTime, sequenceNumber);
   }
 
+  /// @notice Gates direct deposits/mints when a parking lot is set.
+  /// @dev No-op when `parkingLot` is address(0) (open deposits). Otherwise the caller must be
+  ///      the parking lot itself, OR be explicitly on the vault validator's deposit allow list
+  ///      (`depositAllowList[vault][caller]`) — letting trusted depositors keep depositing
+  ///      directly. Everyone else must route through the parking lot. Note this checks explicit
+  ///      allow-list membership, so an empty/inactive allow list lets only the parking lot in.
+  function _enforceDepositGate() internal view {
+    address lot = parkingLot;
+    if (lot == address(0) || msg.sender == lot) return;
+
+    IEmberVaultValidator v = vaultValidator;
+    if (address(v) != address(0) && v.depositAllowList(address(this), msg.sender)) {
+      return; // explicitly allow-listed direct depositor
+    }
+    revert UseParkingLot();
+  }
+
   /// @notice Internal helper to validate deposit requirements
   /// @param depositor Address of the depositor
   /// @param configProxy Protocol config proxy
@@ -1765,7 +1837,13 @@ contract EmberVault is
     if (pauseStatus.deposits) revert OperationPaused();
     if (configProxy.isAccountBlacklisted(depositor)) revert Blacklisted();
     if (subAccounts[depositor]) revert InvalidValue();
-    if (address(vaultValidator) != address(0)) {
+    // The configured parking lot is implicitly allowed. Forwarded async deposits arrive with
+    // `depositor == parkingLot`, and the validator's direct-deposit allow-list must not gate them:
+    // if the allow-list is non-empty and the lot isn't on it, every forward would revert here,
+    // get caught by the parking lot's try/catch, and be silently skipped + refunded — a confusing
+    // total outage of async deposits. The lot is the protocol's own forwarder (the real depositor
+    // was already vetted at the lot), so the direct-deposit allow-list does not apply to it.
+    if (address(vaultValidator) != address(0) && depositor != parkingLot) {
       vaultValidator.validateDeposit(address(this), depositor);
     }
   }

@@ -29,9 +29,20 @@ import * as fs from "fs";
  *                              are reported but excluded (the multisig
  *                              cannot satisfy `caller == owner()` for
  *                              those, so the tx would revert).
+ *   - TIMELOCK_KEY             Which entry under `contracts.timelocks` is the
+ *                              admin timelock. Default: "admin".
+ *   - EXPECTED_SENDER          Override the multisig expected to submit these
+ *                              txs (must equal the current vault owner, since
+ *                              updateVaultAdmin requires caller == owner()).
+ *                              Default: the admin timelock's proposers[0].
  */
 
 type Vault = { key: string; address: string };
+
+/** Resolve a timelock record by key under `contracts.timelocks`. */
+function resolveTimelock(deployment: any, key: string): any | undefined {
+  return deployment.contracts?.timelocks?.[key];
+}
 
 function collectVaults(deployment: any): Vault[] {
   const out: Vault[] = [];
@@ -57,14 +68,19 @@ async function main() {
   }
   const deployment = JSON.parse(fs.readFileSync(deploymentFile, "utf8"));
 
-  const timelock = deployment.contracts?.timelock?.address;
+  const timelockKey = process.env.TIMELOCK_KEY?.trim() || "admin";
+  const timelockRecord = resolveTimelock(deployment, timelockKey);
+  const timelock = timelockRecord?.address;
   if (!timelock || !ethers.isAddress(timelock)) {
-    console.error("❌ contracts.timelock.address missing — deploy the timelock first.");
+    console.error(
+      `❌ admin timelock address missing — deploy it first ` +
+        `(contracts.timelocks.${timelockKey}).`
+    );
     process.exit(1);
   }
-  const expectedSender = deployment.contracts?.timelock?.proposers?.[0];
+  const expectedSender = process.env.EXPECTED_SENDER?.trim() || timelockRecord?.proposers?.[0];
   if (!expectedSender || !ethers.isAddress(expectedSender)) {
-    console.error("❌ contracts.timelock.proposers[0] missing.");
+    console.error("❌ expected sender missing — set EXPECTED_SENDER or timelock proposers[0].");
     process.exit(1);
   }
   const protocolConfig = deployment.contracts?.protocolConfig?.proxyAddress;
