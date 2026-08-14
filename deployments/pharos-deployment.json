@@ -4,7 +4,7 @@
   "contracts": {
     "protocolConfig": {
       "proxyAddress": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
-      "implementationAddress": "0x942c13177bD6D3E45C17A26d58112d7e9Ac9e998",
+      "implementationAddress": "0x68f538B513A5DC593f7A40B1763f8EA4D1B9F7B1",
       "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
       "version": "v2.1.0",
       "deployedAt": "2026-04-14T11:14:10.564Z",
@@ -15,7 +15,7 @@
     "vaults": {
       "emberPharosAlpha": {
         "proxyAddress": "0xE47E9bA4EA2320A6ed87246d02Fd5C38485Ed7d1",
-        "implementationAddress": "0xB1ee8146A76fC8F0b6d0aAf56900ac809741202D",
+        "implementationAddress": "0xA8785bAEaD4e5C622F469bB956cDfbE404fA8F27",
         "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
         "name": "Ember Pharos Alpha",
         "receiptTokenSymbol": "pALPHA",
@@ -35,7 +35,7 @@
       },
       "emberTulipaprwa": {
         "proxyAddress": "0xBae9272F71Db2Dc9D053E3C6c4840dF65ae6aeC5",
-        "implementationAddress": "0xB1ee8146A76fC8F0b6d0aAf56900ac809741202D",
+        "implementationAddress": "0xA8785bAEaD4e5C622F469bB956cDfbE404fA8F27",
         "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
         "name": "Ember TulipaPRWA",
         "receiptTokenSymbol": "tulPRWA",
@@ -55,7 +55,7 @@
       },
       "emberHilbert": {
         "proxyAddress": "0x0284534de2c9C3Dd1B6f277C8eB673F2B4AA54b0",
-        "implementationAddress": "0xB1ee8146A76fC8F0b6d0aAf56900ac809741202D",
+        "implementationAddress": "0xA8785bAEaD4e5C622F469bB956cDfbE404fA8F27",
         "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
         "name": "Ember Hilbert",
         "receiptTokenSymbol": "hLEND",
@@ -72,7 +72,7 @@
       },
       "emberAgra": {
         "proxyAddress": "0xdF6ccF46f0C800CE98C085BF3cF47b72e4a5A519",
-        "implementationAddress": "0xB1ee8146A76fC8F0b6d0aAf56900ac809741202D",
+        "implementationAddress": "0xA8785bAEaD4e5C622F469bB956cDfbE404fA8F27",
         "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
         "name": "Ember Agra",
         "receiptTokenSymbol": "eAGRA",
@@ -89,7 +89,7 @@
       },
       "emberQiro": {
         "proxyAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
-        "implementationAddress": "0xB1ee8146A76fC8F0b6d0aAf56900ac809741202D",
+        "implementationAddress": "0xA8785bAEaD4e5C622F469bB956cDfbE404fA8F27",
         "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
         "name": "Ember Qiro",
         "receiptTokenSymbol": "eQCRD",
@@ -106,7 +106,7 @@
       },
       "emberFlowmarkTurbo": {
         "proxyAddress": "0x0BeaBF7e3f16e4a599BC4B422f3bE5D5157758b4",
-        "implementationAddress": "0xB1ee8146A76fC8F0b6d0aAf56900ac809741202D",
+        "implementationAddress": "0xA8785bAEaD4e5C622F469bB956cDfbE404fA8F27",
         "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
         "name": "Ember Flowmark Turbo",
         "receiptTokenSymbol": "fTURBO",
@@ -125,7 +125,7 @@
       },
       "emberGoblinPrivateCreditI": {
         "proxyAddress": "0x8360648fbA018EE2676C2A13df2ea5BB9b2bD847",
-        "implementationAddress": "0xB1ee8146A76fC8F0b6d0aAf56900ac809741202D",
+        "implementationAddress": "0xA8785bAEaD4e5C622F469bB956cDfbE404fA8F27",
         "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
         "name": "Ember Goblin Private Credit I",
         "receiptTokenSymbol": "GPCI",
@@ -140,11 +140,29 @@
         "deploymentBlockNumber": 11118526,
         "validatorAddress": "0x6c0fa2a05186298d7fb839fcf8394a3f1F59D71B",
         "adminUpdatedAt": "2026-06-29T20:12:40.530Z"
+      },
+      "emberPelicanRwa": {
+        "proxyAddress": "0x1E14F9AE68e6a1c81632DA557aa0426B3b145Ed7",
+        "implementationAddress": "0xA8785bAEaD4e5C622F469bB956cDfbE404fA8F27",
+        "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
+        "name": "Ember Pelican RWA",
+        "receiptTokenSymbol": "ePYG",
+        "collateralToken": "0xC879C018dB60520F4355C26eD1a6D572cdAC1815",
+        "admin": "0x72526A6d64dd7340A4197B3138102d7eAff54DA4",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+        "maxTVL": "10000000000000",
+        "version": "v2.3.1",
+        "deployedAt": "2026-07-17T15:32:38.400Z",
+        "deploymentBlockNumber": 12592787,
+        "adminUpdatedAt": "2026-07-20T15:18:55.466Z",
+        "validatorAddress": "0x6c0fa2a05186298d7fb839fcf8394a3f1F59D71B"
       }
     },
     "vaultValidator": {
       "proxyAddress": "0x6c0fa2a05186298d7fb839fcf8394a3f1F59D71B",
-      "implementationAddress": "0x2A85b52b309D0876DeFB335404F8d3Ec36eA8ab3",
+      "implementationAddress": "0x9e569F28d64Eaac72F3f237C105ef25b7E873121",
       "protocolConfigAddress": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
       "ownerAddress": "0x13A3Ac6BDBAcf932aB6972E32EA253B25dD0d836",
       "version": "v1.0.0",

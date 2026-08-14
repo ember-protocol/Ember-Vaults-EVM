@@ -104,8 +104,33 @@ async function main() {
 
   console.log("\n🚀 Starting upgrade process...\n");
 
+  // EmberETHVault links to VaultPlatformFeeLib + WithdrawalQueueLib post-AI-audit refactor.
+  // EmberVault has no library deps. Resolve only when needed and fail fast if absent.
+  let factoryOptions: { libraries?: Record<string, string> } = {};
+  let platformFeeLibAddress: string | undefined;
+  let withdrawalQueueLibAddress: string | undefined;
+  if (isEthVault) {
+    platformFeeLibAddress =
+      process.env.VAULT_PLATFORM_FEE_LIB_ADDRESS ||
+      deploymentInfo.contracts.vaultPlatformFeeLib?.address;
+    withdrawalQueueLibAddress =
+      process.env.WITHDRAWAL_QUEUE_LIB_ADDRESS ||
+      deploymentInfo.contracts.withdrawalQueueLib?.address;
+    if (!platformFeeLibAddress || !withdrawalQueueLibAddress) {
+      console.error("❌ Error: VaultPlatformFeeLib / WithdrawalQueueLib address not found!");
+      console.log("Run: yarn deploy:vault-libraries");
+      process.exit(1);
+    }
+    factoryOptions = {
+      libraries: {
+        VaultPlatformFeeLib: platformFeeLibAddress,
+        WithdrawalQueueLib: withdrawalQueueLibAddress,
+      },
+    };
+  }
+
   const EmberVaultFactory = isEthVault
-    ? await ethers.getContractFactory("EmberETHVault")
+    ? await ethers.getContractFactory("EmberETHVault", factoryOptions)
     : await ethers.getContractFactory("EmberVault");
 
   // Validate storage-layout compatibility for every proxy BEFORE deploying anything.
@@ -113,7 +138,10 @@ async function main() {
   for (const vaultKey of vaultKeysToUpgrade) {
     const proxyAddress = vaults[vaultKey].proxyAddress;
     try {
-      await upgrades.validateUpgrade(proxyAddress, EmberVaultFactory, { kind: "uups" });
+      await upgrades.validateUpgrade(proxyAddress, EmberVaultFactory, {
+        kind: "uups",
+        unsafeAllowLinkedLibraries: isEthVault,
+      });
       console.log(`   ✅ ${vaultKey} (${proxyAddress}) — compatible`);
     } catch (err: any) {
       console.error(`\n❌ Upgrade validation FAILED for ${vaultKey} (${proxyAddress}):`);
@@ -132,6 +160,7 @@ async function main() {
   const newImplementationAddress = (await upgrades.deployImplementation(EmberVaultFactory, {
     kind: "uups",
     redeployImplementation: "always",
+    unsafeAllowLinkedLibraries: isEthVault,
   })) as string;
   const newImplementation = await ethers.getContractAt(
     isEthVault ? "EmberETHVault" : "EmberVault",
@@ -219,6 +248,10 @@ async function main() {
 
       // Update deployment info
       vaultInfo.implementationAddress = newImplementationAddress;
+      if (isEthVault) {
+        vaultInfo.vaultPlatformFeeLibAddress = platformFeeLibAddress;
+        vaultInfo.withdrawalQueueLibAddress = withdrawalQueueLibAddress;
+      }
       vaultInfo.version = newVersion;
       vaultInfo.upgradedAt = new Date().toISOString();
       vaultInfo.upgradedInBlock = upgradeReceipt?.blockNumber || 0;

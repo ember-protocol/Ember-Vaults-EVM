@@ -105,7 +105,39 @@ async function main() {
 
   console.log("\n🚀 Starting upgrade process...\n");
 
-  const EmberVaultFactory = (await ethers.getContractFactory(vaultType)) as
+  // EmberETHVault links to VaultPlatformFeeLib + WithdrawalQueueLib (post-AI-audit refactor).
+  // EmberVault still inlines all of its bookkeeping so it has no library deps. Resolve the
+  // libraries only when upgrading an ETH vault, and surface a clear error if either is missing.
+  let factoryOptions: { libraries?: Record<string, string> } = {};
+  let platformFeeLibAddress: string | undefined;
+  let withdrawalQueueLibAddress: string | undefined;
+  if (isEthVault) {
+    platformFeeLibAddress =
+      process.env.VAULT_PLATFORM_FEE_LIB_ADDRESS ||
+      deploymentInfo.contracts.vaultPlatformFeeLib?.address;
+    withdrawalQueueLibAddress =
+      process.env.WITHDRAWAL_QUEUE_LIB_ADDRESS ||
+      deploymentInfo.contracts.withdrawalQueueLib?.address;
+    if (!platformFeeLibAddress || !withdrawalQueueLibAddress) {
+      console.error("❌ Error: VaultPlatformFeeLib / WithdrawalQueueLib address not found!");
+      console.log("Run: yarn deploy:vault-libraries");
+      console.log(
+        "Or pass VAULT_PLATFORM_FEE_LIB_ADDRESS / WITHDRAWAL_QUEUE_LIB_ADDRESS for out-of-band libraries."
+      );
+      process.exit(1);
+    }
+    console.log("\nLibraries to link new EmberETHVault implementation against:");
+    console.log("  VaultPlatformFeeLib: ", platformFeeLibAddress);
+    console.log("  WithdrawalQueueLib:  ", withdrawalQueueLibAddress);
+    factoryOptions = {
+      libraries: {
+        VaultPlatformFeeLib: platformFeeLibAddress,
+        WithdrawalQueueLib: withdrawalQueueLibAddress,
+      },
+    };
+  }
+
+  const EmberVaultFactory = (await ethers.getContractFactory(vaultType, factoryOptions)) as
     | EmberETHVault__factory
     | EmberVault__factory;
 
@@ -116,7 +148,14 @@ async function main() {
   for (const vaultKey of vaultKeysToUpgrade) {
     const proxyAddress = vaults[vaultKey].proxyAddress;
     try {
-      await upgrades.validateUpgrade(proxyAddress, EmberVaultFactory, { kind: "uups" });
+      await upgrades.validateUpgrade(proxyAddress, EmberVaultFactory, {
+        kind: "uups",
+        // The upgrades safety analyzer doesn't introspect linked-library code; opt in so the
+        // validator doesn't refuse the ETH-vault upgrade just because external libs are linked.
+        // Library structs (PlatformFee, Account) have identical layouts to the prior inline
+        // definitions, so storage compatibility is preserved.
+        unsafeAllowLinkedLibraries: isEthVault,
+      });
       console.log(`   ✅ ${vaultKey} (${proxyAddress}) — compatible`);
     } catch (err: any) {
       console.error(`\n❌ Upgrade validation FAILED for ${vaultKey} (${proxyAddress}):`);
@@ -137,6 +176,7 @@ async function main() {
   const newImplementationAddress = (await upgrades.deployImplementation(EmberVaultFactory, {
     kind: "uups",
     redeployImplementation: "always",
+    unsafeAllowLinkedLibraries: isEthVault,
   })) as string;
   const newImplementation = await ethers.getContractAt(vaultType, newImplementationAddress);
 
@@ -218,6 +258,10 @@ async function main() {
 
       // Update deployment info
       vaultInfo.implementationAddress = newImplementationAddress;
+      if (isEthVault) {
+        vaultInfo.vaultPlatformFeeLibAddress = platformFeeLibAddress;
+        vaultInfo.withdrawalQueueLibAddress = withdrawalQueueLibAddress;
+      }
       vaultInfo.version = newVersion;
       vaultInfo.upgradedAt = new Date().toISOString();
       vaultInfo.upgradedInBlock = upgradeReceipt?.blockNumber || 0;

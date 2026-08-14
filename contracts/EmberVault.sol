@@ -1451,7 +1451,7 @@ contract EmberVault is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.3.1";
+    return "v2.4.0";
   }
 
   /// @notice Get the vault name (legacy function for backwards compatibility)
@@ -1895,9 +1895,13 @@ contract EmberVault is
 
     uint256 currentTime = _getChainTimestampMs();
 
-    // Record last deposit timestamp for time-based withdrawal fee calculation
+    // Record the last-deposit timestamp against the depositor (msg.sender). See
+    // `EmberVaultValidator.recordDeposit` for the anti-JIT reason we key by
+    // depositor rather than receiver. Using msg.sender rather than the local
+    // `depositor` param is defensive against future refactors that let callers
+    // pass an injected depositor.
     if (address(vaultValidator) != address(0)) {
-      vaultValidator.recordDeposit(address(this), receiver, currentTime);
+      vaultValidator.recordDeposit(address(this), msg.sender, currentTime);
     }
 
     uint256 currentSequenceNumber = sequenceNumber;
@@ -1954,9 +1958,10 @@ contract EmberVault is
     uint256 totalShares = totalSupply();
     uint256 currentTime = _getChainTimestampMs();
 
-    // Record last deposit timestamp for time-based withdrawal fee calculation
+    // Record the last-deposit timestamp against the depositor (msg.sender) —
+    // see `EmberVaultValidator.recordDeposit` for the anti-JIT reason.
     if (address(vaultValidator) != address(0)) {
-      vaultValidator.recordDeposit(address(this), receiver, currentTime);
+      vaultValidator.recordDeposit(address(this), msg.sender, currentTime);
     }
 
     uint256 currentSequenceNumber = sequenceNumber;

@@ -500,10 +500,9 @@ If a user's address cannot receive ETH (e.g., contract without payable function)
 - Operator can retry later
 
 ### Contract Must Hold ETH for Unwrapping
-The vault needs to be able to receive ETH when unwrapping WETH. This is safe because:
-- No `receive()` or `fallback()` functions that accept arbitrary ETH
-- ETH only enters via WETH unwrapping (controlled operation)
-- ETH is immediately sent to users (not stored)
+The vault has a `receive() external payable {}` so it can accept native ETH from the WETH contract during `WETH.withdraw()` (unwrap) when processing withdrawals. Notes:
+- The `receive()` body is **unrestricted** — there is no `msg.sender` check, so any address could send native ETH to the vault. This is harmless for accounting because `totalAssets()` is **rate-based** (modeled from `totalSupply()` × rate), **not** `address(this).balance` — so stray ETH does not inflate TVL or the share price; it merely sits as idle balance.
+- In normal operation ETH enters only via WETH unwrapping and is immediately forwarded to the withdrawing user (not stored).
 
 ## 23. Security Considerations
 

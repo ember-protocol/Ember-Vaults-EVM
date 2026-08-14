@@ -46,6 +46,15 @@ function collectTargets(deployment: any): ProxyTarget[] {
     const proxy = (v as any)?.proxyAddress;
     if (proxy) targets.push({ key: `ethVaults.${k}`, address: proxy, contract: "EmberETHVault" });
   }
+  for (const [k, v] of Object.entries(c.atomicLiquidityVaults ?? {})) {
+    const proxy = (v as any)?.proxyAddress;
+    if (proxy)
+      targets.push({
+        key: `atomicLiquidityVaults.${k}`,
+        address: proxy,
+        contract: "AtomicLiquidity",
+      });
+  }
   for (const [k, v] of Object.entries(c.depositParkingLots ?? {})) {
     const proxy = (v as any)?.proxyAddress;
     if (proxy)
@@ -57,6 +66,52 @@ function collectTargets(deployment: any): ProxyTarget[] {
   }
 
   return targets;
+}
+
+// Per-contract library link map. Linked contracts cannot be loaded via getContractFactory
+// without their libraries: argument — the call fails with "missing links". Order matters:
+// AtomicLiquidity needs three libraries, EmberETHVault needs two, the rest need none.
+function buildFactoryOptions(
+  contract: string,
+  deployment: any
+): { libraries?: Record<string, string>; allowLinked: boolean } {
+  const c = deployment?.contracts ?? {};
+  const atomic = c.atomicLiquidityLib?.address;
+  const platformFee = c.vaultPlatformFeeLib?.address;
+  const queue = c.withdrawalQueueLib?.address;
+
+  if (contract === "AtomicLiquidity") {
+    if (!atomic || !platformFee || !queue) {
+      throw new Error(
+        `AtomicLiquidity validation requires atomicLiquidityLib + vaultPlatformFeeLib + withdrawalQueueLib in the deployment file (run yarn deploy:atomic-liquidity-lib and yarn deploy:vault-libraries).`
+      );
+    }
+    return {
+      libraries: {
+        AtomicLiquidityLib: atomic,
+        VaultPlatformFeeLib: platformFee,
+        WithdrawalQueueLib: queue,
+      },
+      allowLinked: true,
+    };
+  }
+
+  if (contract === "EmberETHVault") {
+    if (!platformFee || !queue) {
+      throw new Error(
+        `EmberETHVault validation requires vaultPlatformFeeLib + withdrawalQueueLib in the deployment file (run yarn deploy:vault-libraries).`
+      );
+    }
+    return {
+      libraries: {
+        VaultPlatformFeeLib: platformFee,
+        WithdrawalQueueLib: queue,
+      },
+      allowLinked: true,
+    };
+  }
+
+  return { allowLinked: false };
 }
 
 async function probeRpc(): Promise<{ chainId: bigint; name: string; blockNumber: number }> {
@@ -123,8 +178,15 @@ async function main() {
   for (const target of targets) {
     process.stdout.write(`   ${target.key} [${target.contract}] ${target.address} ... `);
     try {
-      const Factory = await ethers.getContractFactory(target.contract);
-      await upgrades.validateUpgrade(target.address, Factory, { kind: "uups" });
+      const { libraries, allowLinked } = buildFactoryOptions(target.contract, deployment);
+      const Factory = await ethers.getContractFactory(
+        target.contract,
+        libraries ? { libraries } : undefined
+      );
+      await upgrades.validateUpgrade(target.address, Factory, {
+        kind: "uups",
+        unsafeAllowLinkedLibraries: allowLinked,
+      });
       console.log("✅");
     } catch (err: any) {
       console.log("❌");

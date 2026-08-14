@@ -5,6 +5,8 @@ Complete API reference for all smart contracts in the Ember Vaults system.
 ## Table of Contents
 
 - [EmberVault.sol](#embervaultsol)
+- [EmberETHVault.sol](#emberethvaultsol)
+- [AtomicLiquidity.sol](#atomicliquiditysol)
 - [EmberProtocolConfig.sol](#emberprotocolconfigsol)
 - [FixedPointMath Library](#fixedpointmath-library)
 - [ERC20Token.sol (Testing)](#erc20tokensol-testing)
@@ -109,6 +111,27 @@ Called via EmberProtocolConfig only:
 | `collectPlatformFee()` | Collects accrued platform fees and transfers to recipient |
 | `processWithdrawalRequests(uint256 numRequests)` | Processes pending withdrawal requests from queue |
 | `withdrawFromVaultWithoutRedeemingShares(address subAccount, uint256 amount)` | Withdraws to whitelisted sub-account |
+
+---
+
+## EmberETHVault.sol
+
+ETH/WETH variant of the vault. Like `EmberVault` it is a rate-based ERC-4626 vault (`ERC4626Upgradeable`), but its underlying `asset()` is **WETH**. It accepts deposits in either native ETH (auto-wrapped via `depositETH` / `mintWithETH`) or pre-wrapped WETH (standard `deposit` / `mint` / permit variants), and pays out **native ETH** to users on withdrawal (WETH is unwrapped) while sending WETH to sub-accounts and the fee recipient. Same request-based redemption queue, fees, roles, and pause semantics as `EmberVault`. `version()` is `"v2.1.0-eth"`.
+
+Full reference: **[contracts/EmberETHVault.README.md](../contracts/EmberETHVault.README.md)** · deployment: **[docs/EmberETHVault.DEPLOYMENT.md](./EmberETHVault.DEPLOYMENT.md)**.
+
+---
+
+## AtomicLiquidity.sol
+
+A rate-based vault that mirrors `EmberVault`'s request-based redemption and pricing but **issues no receipt/share token** — user shares are tracked in an internal `shareOf` mapping (non-transferable). Adds:
+
+- **Instant withdraw** — immediate, fee'd exit capped by a lifetime cumulative limit (`instantWithdraw`).
+- **ERC-4626 strategy** — idle collateral can be supplied to / withdrawn from an external ERC-4626 vault (e.g. MetaMorpho); `setStrategy` auto-drains the previous strategy.
+- **Cross-vault EmberShare swap** — swap another EmberVault's receipt token for collateral immediately (`swapEmberShares`), with a per-share fixed-window capacity cap, a concentration cap (`maxUtilizationPercentage`) plus a TVL-independent absolute cap (`maxHeldValueAbsolute`), a `minSwapGross` dust floor, a fee-multiplier curve, per-address fee/holdback waivers, and a FIFO holdback queue released via `releaseUsersHoldback` (which skips protocol-blacklisted recipients).
+- **`solvencyMargin()`** — read-only collateralization signal for monitoring.
+
+Full reference (state, flows, API, events, errors): **[docs/AtomicLiquidity.md](./AtomicLiquidity.md)**.
 
 ---
 

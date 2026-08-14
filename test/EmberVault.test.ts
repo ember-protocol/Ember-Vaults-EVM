@@ -155,7 +155,7 @@ describe("EmberVault", function () {
     });
 
     it("should have correct version", async function () {
-      expect(await vault.version()).to.equal("v2.3.1");
+      expect(await vault.version()).to.equal("v2.4.0");
     });
 
     it("should emit VaultCreated event", async function () {

@@ -13,6 +13,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "./interfaces/IAtomicLiquidity.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
 import "./interfaces/IEmberVault.sol";
 import "./interfaces/IEmberVaultValidator.sol";
@@ -33,6 +34,10 @@ contract EmberProtocolConfig is
   uint256 public constant MIN_RATE_INTERVAL = 60 * 60 * 1000; // 1 hour in milliseconds
   uint256 public constant MAX_RATE_INTERVAL = 24 * 60 * 60 * 1000; // 1 day in milliseconds
   uint256 public constant MAX_FEE_PERCENTAGE = 100_000_000_000_000_000;
+  /// @dev L-5: hard ceiling on withdrawal fees (50%, in 1e18 fixed-point), enforced both
+  ///      individually and combined (permanent + time-based). The prior `< 1e18` bound only
+  ///      prevented the net-payout underflow, so a confiscatory 99% withdrawal fee was settable.
+  uint256 public constant MAX_WITHDRAWAL_FEE_PERCENTAGE = 500_000_000_000_000_000;
 
   // Structs
   struct ProtocolConfig {
@@ -504,13 +509,15 @@ contract EmberProtocolConfig is
     address vault,
     uint256 newPercentage
   ) external nonReentrant {
-    if (newPercentage >= 1e18) revert InvalidValue();
     IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
     IEmberVaultValidator.WithdrawalFee memory fee = validator.withdrawalFee(vault);
     if (newPercentage == fee.permanentFeePercentage) revert SameValue();
-    // Joint cap: the sum of permanent + time-based percentages must remain < 1e18 so the
-    // withdrawal fee subtraction (withdrawAmount -= totalFee) cannot underflow.
-    if (newPercentage + fee.timeBasedFeePercentage >= 1e18) revert InvalidValue();
+    // L-5: cap the sum of permanent + time-based at 50% (not merely < 100%) so withdrawal
+    // fees can't be set confiscatorily. Also keeps the net-payout subtraction from underflowing.
+    // Strictly dominates an individual `newPercentage > MAX` check (fee.timeBasedFeePercentage
+    // is already ≤ MAX by the same invariant applied on its own setter).
+    if (newPercentage + fee.timeBasedFeePercentage > MAX_WITHDRAWAL_FEE_PERCENTAGE)
+      revert InvalidValue();
     validator.setPermanentFeePercentage(msg.sender, vault, newPercentage);
   }
 
@@ -518,12 +525,12 @@ contract EmberProtocolConfig is
     address vault,
     uint256 newPercentage
   ) external nonReentrant {
-    if (newPercentage >= 1e18) revert InvalidValue();
     IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
     IEmberVaultValidator.WithdrawalFee memory fee = validator.withdrawalFee(vault);
     if (newPercentage == fee.timeBasedFeePercentage) revert SameValue();
-    // Joint cap with permanent fee — see updateVaultPermanentFeePercentage.
-    if (newPercentage + fee.permanentFeePercentage >= 1e18) revert InvalidValue();
+    // L-5: 50% joint cap with permanent fee — see updateVaultPermanentFeePercentage.
+    if (newPercentage + fee.permanentFeePercentage > MAX_WITHDRAWAL_FEE_PERCENTAGE)
+      revert InvalidValue();
     validator.setTimeBasedFeePercentage(msg.sender, vault, newPercentage);
   }
 
@@ -534,6 +541,83 @@ contract EmberProtocolConfig is
     IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
     if (newThreshold == validator.withdrawalFee(vault).timeBasedFeeThreshold) revert SameValue();
     validator.setTimeBasedFeeThreshold(msg.sender, vault, newThreshold);
+  }
+
+  // ============================================
+  // Atomic Liquidity Vault Forwarders
+  // ============================================
+  // AtomicLiquidity's admin setters are gated by `onlyProtocolConfig` and forward the
+  // original caller back to the vault for role validation. These functions are the
+  // only entry points that can reach those setters on-chain.
+
+  /// @notice Sets (or clears) the external ERC-4626 strategy on an atomic vault.
+  function setVaultStrategy(address vault, address newStrategy) external nonReentrant {
+    IAtomicLiquidity(vault).setStrategy(msg.sender, newStrategy);
+  }
+
+  /// @notice Sets the cumulative cap (in shares) for instantWithdraw redemptions.
+  function setVaultMaxInstantWithdrawShares(address vault, uint256 newMax) external nonReentrant {
+    IAtomicLiquidity(vault).setMaxInstantWithdrawShares(msg.sender, newMax);
+  }
+
+  /// @notice Sets the fee percentage charged on instant withdrawals (1e18 = 100%).
+  function setVaultInstantWithdrawFeePercentage(
+    address vault,
+    uint256 newFeePercentage
+  ) external nonReentrant {
+    IAtomicLiquidity(vault).setInstantWithdrawFeePercentage(msg.sender, newFeePercentage);
+  }
+
+  /// @notice Whitelists (or de-lists) an EmberVault share for the cross-vault instant swap.
+  function setVaultEmberShareWhitelist(
+    address vault,
+    address share,
+    bool whitelisted,
+    uint256 feePercentage,
+    uint256 maxCapacityPercentage,
+    uint256 holdbackPercentage,
+    uint256 maxUtilizationPercentage,
+    uint256 minSwapGross,
+    uint256 maxHeldValueAbsolute
+  ) external nonReentrant {
+    IAtomicLiquidity(vault).setEmberShareWhitelist(
+      msg.sender,
+      share,
+      whitelisted,
+      feePercentage,
+      maxCapacityPercentage,
+      holdbackPercentage,
+      maxUtilizationPercentage,
+      minSwapGross,
+      maxHeldValueAbsolute
+    );
+  }
+
+  /// @notice Sets per-address fee and holdback waivers for the EmberShare cross-vault swap.
+  function setVaultSwapWaiver(
+    address vault,
+    address account,
+    bool feeWaived,
+    bool holdbackWaived
+  ) external nonReentrant {
+    IAtomicLiquidity(vault).setSwapWaiver(msg.sender, account, feeWaived, holdbackWaived);
+  }
+
+  /// @notice Adds, updates, or removes a fee-multiplier curve tier for an EmberShare.
+  function updateVaultEmberShareFeeMultiplierTier(
+    address vault,
+    address share,
+    uint256 threshold,
+    uint256 multiplier,
+    bool remove
+  ) external nonReentrant {
+    IAtomicLiquidity(vault).updateEmberShareFeeMultiplierTier(
+      msg.sender,
+      share,
+      threshold,
+      multiplier,
+      remove
+    );
   }
 
   // ============================================
@@ -584,7 +668,7 @@ contract EmberProtocolConfig is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.2.1";
+    return "v2.2.2";
   }
 
   /// @notice Verifies that the protocol is not paused

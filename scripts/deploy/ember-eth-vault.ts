@@ -68,6 +68,24 @@ async function main() {
 
   const protocolConfigAddress = deploymentInfo.contracts.protocolConfig?.proxyAddress;
 
+  // EmberETHVault links to VaultPlatformFeeLib and WithdrawalQueueLib (post-AI-audit refactor).
+  // Resolve both from the deployment file or env overrides BEFORE building the factory —
+  // omitting either fails at link time with a clear "missing links" error.
+  const platformFeeLibAddress =
+    process.env.VAULT_PLATFORM_FEE_LIB_ADDRESS ||
+    deploymentInfo.contracts.vaultPlatformFeeLib?.address;
+  const withdrawalQueueLibAddress =
+    process.env.WITHDRAWAL_QUEUE_LIB_ADDRESS ||
+    deploymentInfo.contracts.withdrawalQueueLib?.address;
+  if (!platformFeeLibAddress || !withdrawalQueueLibAddress) {
+    console.error("❌ Error: VaultPlatformFeeLib / WithdrawalQueueLib address not found!");
+    console.log("Run: yarn deploy:vault-libraries");
+    console.log(
+      "Or pass VAULT_PLATFORM_FEE_LIB_ADDRESS / WITHDRAWAL_QUEUE_LIB_ADDRESS for out-of-band libraries."
+    );
+    process.exit(1);
+  }
+
   // Validate required parameters
   if (
     !vaultName ||
@@ -143,8 +161,16 @@ async function main() {
     maxTVL: maxTVL,
   };
 
-  // Deploy the EmberETHVault contract
-  const EmberETHVaultFactory = await ethers.getContractFactory("EmberETHVault");
+  // Deploy the EmberETHVault contract, linked to both shared libraries.
+  console.log("Linking EmberETHVault to libraries:");
+  console.log("  VaultPlatformFeeLib: ", platformFeeLibAddress);
+  console.log("  WithdrawalQueueLib:  ", withdrawalQueueLibAddress);
+  const EmberETHVaultFactory = await ethers.getContractFactory("EmberETHVault", {
+    libraries: {
+      VaultPlatformFeeLib: platformFeeLibAddress,
+      WithdrawalQueueLib: withdrawalQueueLibAddress,
+    },
+  });
 
   console.log("Deploying EmberETHVault proxy...");
   try {
@@ -154,6 +180,10 @@ async function main() {
       {
         initializer: "initialize",
         kind: "uups",
+        // Required: the upgrades plugin refuses to deploy proxies for impls with linked
+        // libraries unless this opt-in is set, since the linked code is outside the upgrade-
+        // safety analyzer. The libraries hold no state, so storage compatibility is preserved.
+        unsafeAllowLinkedLibraries: true,
       }
     )) as any;
 
@@ -218,6 +248,8 @@ async function main() {
     deploymentInfo.contracts.ethVaults[vaultKey] = {
       proxyAddress: proxyAddress,
       implementationAddress: implementationAddress,
+      vaultPlatformFeeLibAddress: platformFeeLibAddress,
+      withdrawalQueueLibAddress: withdrawalQueueLibAddress,
       ownerAddress: owner,
       name: vaultName,
       receiptTokenSymbol: vaultReceiptTokenSymbol,

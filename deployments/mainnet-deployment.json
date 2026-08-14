@@ -4,7 +4,7 @@
   "contracts": {
     "protocolConfig": {
       "proxyAddress": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
-      "implementationAddress": "0x1Ff9fE88c530B5320BB70e4b9593b33c0Ae7289f",
+      "implementationAddress": "0x540dB273e41587A748365f01f35ADB095B58BfeB",
       "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
       "version": "v2.1.0",
       "deployedAt": "2026-02-20T12:00:00.727Z",
@@ -13,7 +13,7 @@
     "vaults": {
       "emberUdl": {
         "proxyAddress": "0x373152feEF81cC59502DA2c8dE877b3D5Ae2E342",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember UDL",
         "receiptTokenSymbol": "eUDL",
@@ -32,7 +32,7 @@
       },
       "metaversalUsd": {
         "proxyAddress": "0xB920ED46deC7455d0CAf52B357D9a9f55B4DaeCA",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Metaversal USD",
         "receiptTokenSymbol": "metaUSD",
@@ -49,7 +49,7 @@
       },
       "emberThirdEye": {
         "proxyAddress": "0xf3190A3ECC109F88e7947b849b281918c798A0C4",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Third Eye",
         "receiptTokenSymbol": "eTHIRD",
@@ -66,7 +66,7 @@
       },
       "emberPharosAlpha": {
         "proxyAddress": "0xC3AaCb558aFB635307B66FDb405188138576fc4c",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Pharos Alpha",
         "receiptTokenSymbol": "pALPHA",
@@ -106,7 +106,7 @@
       },
       "emberPolymarket": {
         "proxyAddress": "0x0b9342C15143E8F54a83f887C280A922f4c48771",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Polymarket",
         "receiptTokenSymbol": "ePOLY",
@@ -121,30 +121,9 @@
         "deploymentBlockNumber": 24448305,
         "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465"
       },
-      "emberThirdEyeEth": {
-        "proxyAddress": "0xBCc08Fa81ee02Ff4B9e554A988207Fc56767b762",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
-        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
-        "name": "Ember Third Eye ETH",
-        "receiptTokenSymbol": "etETH",
-        "collateralToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-        "admin": "0x3BCbDEE23B83a05464Cb8c9Bef63862aA282790c",
-        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
-        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
-        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
-        "maxTVL": "5000000000000000000000",
-        "version": "v2.1.0",
-        "deployedAt": "2026-02-13T14:02:07.571Z",
-        "deploymentBlockNumber": 24448326,
-        "upgradedAt": "2026-05-05T16:13:02.537Z",
-        "upgradedInBlock": 25029922,
-        "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465",
-        "adminUpdatedAt": "2026-06-10T16:47:01.266Z",
-        "ownerUpdatedAt": "2026-06-10T17:11:38.462Z"
-      },
       "emberEarn": {
         "proxyAddress": "0x9be9294722f8AAd37b11a9792Be2C782182caFA2",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Earn",
         "receiptTokenSymbol": "eEARN",
@@ -161,7 +140,7 @@
       },
       "emberApolloAcred": {
         "proxyAddress": "0x2B13311fD553E74b421d4cCc96e348F71e179DcF",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Apollo ACRED",
         "receiptTokenSymbol": "eACRED",
@@ -178,30 +157,9 @@
         "upgradedInBlock": 24779544,
         "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465"
       },
-      "emberEth": {
-        "proxyAddress": "0x0D16269819064163Ca5e2eeEa38eec05A503BCb2",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
-        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
-        "name": "Ember ETH",
-        "receiptTokenSymbol": "eETH",
-        "collateralToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-        "admin": "0x3BCbDEE23B83a05464Cb8c9Bef63862aA282790c",
-        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
-        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
-        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
-        "maxTVL": "10000000000000000000000",
-        "version": "v2.1.0",
-        "deployedAt": "2026-02-20T11:27:04.875Z",
-        "deploymentBlockNumber": 24497759,
-        "upgradedAt": "2026-05-05T16:12:52.280Z",
-        "upgradedInBlock": 25029921,
-        "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465",
-        "adminUpdatedAt": "2026-06-10T16:47:26.129Z",
-        "ownerUpdatedAt": "2026-06-10T17:12:03.059Z"
-      },
       "emberY10k": {
         "proxyAddress": "0x953972ea0C1703c58F09FB6fD2477Fdcf0FEe074",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Y10K",
         "receiptTokenSymbol": "eY10K",
@@ -220,7 +178,7 @@
       },
       "emberFlowmarkTurbo": {
         "proxyAddress": "0x7180C7dd24Eb82dB2a17740996f47E42fF0203b6",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Flowmark Turbo",
         "receiptTokenSymbol": "fTURBO",
@@ -237,7 +195,7 @@
       },
       "emberOtus": {
         "proxyAddress": "0xddDe03447327d391cDA265c307f8758Ee365DA86",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Otus",
         "receiptTokenSymbol": "eOTUS",
@@ -254,7 +212,7 @@
       },
       "emberMimi": {
         "proxyAddress": "0x9d5970bBA8b7D488100e9851e2892Fa6F7c5cf8b",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember MIMI",
         "receiptTokenSymbol": "eMIMI",
@@ -275,7 +233,7 @@
       },
       "emberXdc": {
         "proxyAddress": "0x5c3aB21B6674feFe06891598BeF757Af2D1EA66a",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember XDC",
         "receiptTokenSymbol": "eXDC",
@@ -296,7 +254,7 @@
       },
       "emberHilbert": {
         "proxyAddress": "0x9F00c771253fB8D231C08b8D57390a989d48C938",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Hilbert",
         "receiptTokenSymbol": "hLEND",
@@ -313,7 +271,7 @@
       },
       "emberAgra": {
         "proxyAddress": "0x66B998Fb71Ec6B2287be7DF81168De2E2820129D",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Agra",
         "receiptTokenSymbol": "eAGRA",
@@ -330,7 +288,7 @@
       },
       "emberQiro": {
         "proxyAddress": "0x4CD2bf79C4e7335f813E9f5697eEeBffEE2F72c3",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Qiro",
         "receiptTokenSymbol": "eQCRD",
@@ -347,7 +305,7 @@
       },
       "emberTulipaprwa": {
         "proxyAddress": "0xaa1D6fA2bc21d5518DCbb0FA37e07b44c9899d26",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember TulipaPRWA",
         "receiptTokenSymbol": "tulPRWA",
@@ -364,7 +322,7 @@
       },
       "emberSalt": {
         "proxyAddress": "0x51AcC92414d525CEA228932362B3E4705C52464b",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Salt",
         "receiptTokenSymbol": "eSALT",
@@ -381,7 +339,7 @@
       },
       "emberHilbertBtc": {
         "proxyAddress": "0x770d7B99e2e740b865c46bfc6dB57eF5AC466FDe",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Hilbert BTC",
         "receiptTokenSymbol": "hBTC",
@@ -400,7 +358,7 @@
       },
       "emberShyftYield": {
         "proxyAddress": "0xB81f227d731C891778C400344139D3449f72511d",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Shyft Yield",
         "receiptTokenSymbol": "shYIELD",
@@ -419,7 +377,7 @@
       },
       "emberShyftCore": {
         "proxyAddress": "0x1508E9f36B50A4023798Ddd11F1e266C6d5Aa782",
-        "implementationAddress": "0xAB222201C5bD8A18Dc6B340Ba78a709589E01781",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Shyft Core",
         "receiptTokenSymbol": "shCORE",
@@ -435,12 +393,120 @@
         "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465",
         "adminUpdatedAt": "2026-06-25T15:54:49.675Z",
         "ownerUpdatedAt": "2026-06-25T15:55:02.097Z"
+      },
+      "bitwisePremium+": {
+        "proxyAddress": "0xbc5d3722376d44f3bC316C6EA61C9Bd553Be8CBe",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
+        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
+        "name": "Bitwise Premium+",
+        "receiptTokenSymbol": "PPLUS",
+        "collateralToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "admin": "0x3BCbDEE23B83a05464Cb8c9Bef63862aA282790c",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "maxTVL": "20000000000000",
+        "version": "v2.3.1",
+        "deployedAt": "2026-07-17T15:18:01.607Z",
+        "deploymentBlockNumber": 25553253,
+        "adminUpdatedAt": "2026-07-17T17:02:49.489Z",
+        "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465",
+        "validatorUpdatedAt": "2026-07-17T16:11:49.726Z",
+        "parkingLotAddress": "0x626d3410450C0A716D721e6a3C6B75A36d00E913",
+        "parkingLotUpdatedAt": "2026-07-17T16:17:50.688Z"
+      },
+      "emberThirdEyePredictionMarkets": {
+        "proxyAddress": "0x1Aa36795AD2E334CaB8f57ADfd62df22eea7Cc19",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
+        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
+        "name": "Ember Third Eye Prediction Markets",
+        "receiptTokenSymbol": "eTPM",
+        "collateralToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "admin": "0x3BCbDEE23B83a05464Cb8c9Bef63862aA282790c",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "maxTVL": "5000000000000",
+        "version": "v2.3.1",
+        "deployedAt": "2026-07-17T15:23:25.609Z",
+        "deploymentBlockNumber": 25553280,
+        "adminUpdatedAt": "2026-07-20T15:25:02.891Z",
+        "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465"
+      },
+      "emberCommoditiesReserve": {
+        "proxyAddress": "0x08576B9368b9333A2e4Be869AD1718C6dffD8d4B",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
+        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
+        "name": "Ember Commodities Reserve",
+        "receiptTokenSymbol": "eRWA",
+        "collateralToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "admin": "0x3BCbDEE23B83a05464Cb8c9Bef63862aA282790c",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "maxTVL": "5000000000000",
+        "version": "v2.3.1",
+        "deployedAt": "2026-07-17T15:26:50.365Z",
+        "deploymentBlockNumber": 25553297,
+        "adminUpdatedAt": "2026-07-20T15:24:37.803Z",
+        "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465"
+      },
+      "emberPelicanRwa": {
+        "proxyAddress": "0x6dA9B2c19ADfCF73C4F5690d41e81B2AFE948864",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
+        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
+        "name": "Ember Pelican RWA",
+        "receiptTokenSymbol": "ePYG",
+        "collateralToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "admin": "0x3BCbDEE23B83a05464Cb8c9Bef63862aA282790c",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "maxTVL": "10000000000000",
+        "version": "v2.3.1",
+        "deployedAt": "2026-07-17T15:30:51.021Z",
+        "deploymentBlockNumber": 25553317,
+        "adminUpdatedAt": "2026-07-20T15:24:14.550Z",
+        "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465"
+      },
+      "emberHighIncome": {
+        "proxyAddress": "0x065cfaf16d4586133FBCAc01C4B440F6FC0E691a",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
+        "ownerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "name": "Ember High Income",
+        "receiptTokenSymbol": "HIGH",
+        "collateralToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "admin": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "maxTVL": "5000000000000",
+        "version": "v2.4.0",
+        "deployedAt": "2026-08-12T21:36:49.767Z",
+        "deploymentBlockNumber": 25741651,
+        "validatorAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465"
+      },
+      "emberAtomic": {
+        "proxyAddress": "0x43dF1df9045443F24394eD79A5Ed80D55c582F0C",
+        "implementationAddress": "0x9b2e2Eef7ffe1b15ca8C61E65538b51cA8977c7E",
+        "ownerAddress": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "name": "Ember Atomic",
+        "receiptTokenSymbol": "ATMC",
+        "collateralToken": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "admin": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "maxTVL": "5000000000000",
+        "version": "v2.4.0",
+        "deployedAt": "2026-08-13T18:15:15.102Z",
+        "deploymentBlockNumber": 25747830
       }
     },
     "ethVaults": {
       "emberThirdEyeEth": {
         "proxyAddress": "0x910b09B087D6243Cbd403419E805D32c9D26B69a",
-        "implementationAddress": "0x44a900eeC48d6e4F9c72936c3356233aD687bf77",
+        "implementationAddress": "0x1d36ea21B9a5eebe008c3c64267520Ae8FC4745A",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember Third Eye ETH",
         "receiptTokenSymbol": "etETH",
@@ -461,7 +527,7 @@
       },
       "emberEth": {
         "proxyAddress": "0xAD2d4bAa8FDdf291129d30595b242887b3Bc5243",
-        "implementationAddress": "0x44a900eeC48d6e4F9c72936c3356233aD687bf77",
+        "implementationAddress": "0x1d36ea21B9a5eebe008c3c64267520Ae8FC4745A",
         "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
         "name": "Ember ETH",
         "receiptTokenSymbol": "eETH",
@@ -483,7 +549,7 @@
     },
     "vaultValidator": {
       "proxyAddress": "0x4C735b0989f1a7464991BcCA9F0e8c661bA54465",
-      "implementationAddress": "0xe2089585c12CA4638ef072236FFF877E961B8f13",
+      "implementationAddress": "0x2bEbb55C0ca126b0d883fb94843c0A2C13102522",
       "protocolConfigAddress": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
       "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
       "version": "v1.0.0",
@@ -538,16 +604,90 @@
         "deploymentBlockNumber": 25295344
       }
     },
+    "vaultPlatformFeeLib": {
+      "address": "0xeB79a22c66de38166B49Ec45fE020a436987b2E4",
+      "deployerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+      "deployedAt": "2026-08-11T14:10:51.682Z",
+      "deploymentBlockNumber": 25732265,
+      "bytecodeSize": 450
+    },
+    "withdrawalQueueLib": {
+      "address": "0x9dc5347852dd7e273c199D06A3DB1c0d83753a20",
+      "deployerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+      "deployedAt": "2026-08-11T14:11:03.312Z",
+      "deploymentBlockNumber": 25732266,
+      "bytecodeSize": 1213
+    },
     "depositParkingLots": {
       "emberUsdBeta": {
         "proxyAddress": "0xF7498dC5Bb65F705340692A891b8AFb49C6d44FC",
-        "implementationAddress": "0x1096a269128A291b658f9DCA77DA4356BF6C8b42",
+        "implementationAddress": "0x88a7CA9D288D0e0A80729bc3ec53167974Ec9dF3",
         "ownerAddress": "0x116046991e3F0B0967723073a87820eF5edB29f2",
         "vault": "0x1783ACd7EC7694Aa861CD3a21C421A4D7C9Ca97a",
         "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
         "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
         "deployedAt": "2026-07-09T21:33:03.990Z",
-        "deploymentBlockNumber": 25497737
+        "deploymentBlockNumber": 25497737,
+        "version": "v1.1.0",
+        "upgradedAt": "2026-08-12T15:29:28.406Z",
+        "upgradedInBlock": 25739819
+      },
+      "emberHilbert": {
+        "proxyAddress": "0x217b7c8235874c712383d4108952f61CE4B0a766",
+        "implementationAddress": "0x1096a269128A291b658f9DCA77DA4356BF6C8b42",
+        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
+        "vault": "0x9F00c771253fB8D231C08b8D57390a989d48C938",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "deployedAt": "2026-07-15T10:24:01.567Z",
+        "deploymentBlockNumber": 25537436
+      },
+      "emberHilbertBtc": {
+        "proxyAddress": "0xD1f493303b3Ae3c3566308D1b0f02466559A95DE",
+        "implementationAddress": "0x1096a269128A291b658f9DCA77DA4356BF6C8b42",
+        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
+        "vault": "0x770d7B99e2e740b865c46bfc6dB57eF5AC466FDe",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "deployedAt": "2026-07-15T11:16:51.062Z",
+        "deploymentBlockNumber": 25537699
+      },
+      "bitwisePremium+": {
+        "proxyAddress": "0x626d3410450C0A716D721e6a3C6B75A36d00E913",
+        "implementationAddress": "0x1096a269128A291b658f9DCA77DA4356BF6C8b42",
+        "ownerAddress": "0x12917E06b55995e7a5D73681cE491774C73b7C6a",
+        "vault": "0xbc5d3722376d44f3bC316C6EA61C9Bd553Be8CBe",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "deployedAt": "2026-07-17T15:39:25.494Z",
+        "deploymentBlockNumber": 25553360
+      }
+    },
+    "atomicLiquidityLib": {
+      "address": "0x66d3d26512E3F77500637A5E1496eF3c13f4DDB2",
+      "deployerAddress": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+      "deployedAt": "2026-08-13T18:16:13.429Z",
+      "deploymentBlockNumber": 25747835,
+      "bytecodeSize": 10771
+    },
+    "atomicLiquidityVaults": {
+      "emberAtomicInt.": {
+        "proxyAddress": "0xb6DF89360A0BFcebde4392429E0c88D793ab676d",
+        "implementationAddress": "0x4c8b5111AE5d42699572eFA127383b9B517dF1a2",
+        "libraryAddress": "0x66d3d26512E3F77500637A5E1496eF3c13f4DDB2",
+        "vaultPlatformFeeLibAddress": "0xeB79a22c66de38166B49Ec45fE020a436987b2E4",
+        "withdrawalQueueLibAddress": "0x9dc5347852dd7e273c199D06A3DB1c0d83753a20",
+        "ownerAddress": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "name": "Ember Atomic Int.",
+        "collateralToken": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "admin": "0x116046991e3F0B0967723073a87820eF5edB29f2",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x1Dc4836E5A0A95105BeE1899e3b6bbB1714480fB",
+        "maxTVL": "5000000000000",
+        "version": "v1.0.0",
+        "deployedAt": "2026-08-13T18:35:52.172Z",
+        "deploymentBlockNumber": 25747933
       }
     }
   }

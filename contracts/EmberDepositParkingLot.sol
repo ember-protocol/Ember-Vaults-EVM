@@ -17,6 +17,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
 import "./interfaces/IEmberVault.sol";
+import "./interfaces/IEmberVaultValidator.sol";
 
 /// @notice Minimal view of the target vault used by the parking lot.
 interface IAsyncVaultDeposit {
@@ -525,6 +526,16 @@ contract EmberDepositParkingLot is
     collateralToken.forceApprove(address(vault), request.assets);
 
     try vault.deposit(request.assets, request.receiver) returns (uint256 sharesMinted) {
+      // The vault sees `msg.sender = this parking lot` on the forwarded deposit
+      // and records the parking lot's anti-JIT clock. Correct that here by
+      // recording the ORIGINAL depositor's clock via the validator's parking-
+      // lot-scoped entry point. Without this, the depositor's next direct
+      // withdrawal would hit the "no recorded deposit → fee fires" branch of
+      // `calculateWithdrawalFees` even though they had already deposited.
+      IEmberVaultValidator validator = IEmberVault(address(vault)).vaultValidator();
+      if (address(validator) != address(0)) {
+        validator.recordDepositFor(address(vault), request.depositor, block.timestamp * 1000);
+      }
       emit DepositForwarded(
         address(vault),
         request.depositor,
@@ -609,6 +620,10 @@ contract EmberDepositParkingLot is
 
   function _nowMs() internal view returns (uint256) {
     return block.timestamp * 1000;
+  }
+
+  function version() external pure virtual returns (string memory) {
+    return "v1.1.0";
   }
 
   /// @dev Owner-gated UUPS upgrade hook. Because this contract holds live user escrow, an upgrade

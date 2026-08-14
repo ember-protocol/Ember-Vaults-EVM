@@ -317,6 +317,72 @@ describe("EmberVault - Process Withdrawals", function () {
       expect(platformFeeAfter.lastChargedAt).to.be.gt(lastChargedAtBefore);
     });
 
+    // Locks in charge-BEFORE-burn ordering. Redeem the ENTIRE supply, then process: the
+    // time-based fee must be charged on the full pre-burn TVL. Under the old charge-after-burn
+    // ordering the fee base would be the post-burn TVL (here 0) and nothing would accrue —
+    // so a strictly-positive accrual with zero remaining supply proves fees settle first.
+    it("charges the time-based fee on the pre-burn TVL (settles before burning)", async function () {
+      const holders = [user1, user2, user3, blacklistedUser];
+      for (const h of holders) {
+        const bal = await vault.balanceOf(h.address);
+        await vault.connect(h).approve(await vault.getAddress(), bal);
+        await vault.connect(h).redeemShares(bal, h.address);
+      }
+
+      // Elapse time so a non-trivial fee is owed on the still-outstanding TVL.
+      await ethers.provider.send("evm_increaseTime", [30 * 24 * 3600]);
+      await ethers.provider.send("evm_mine", []);
+
+      const accruedBefore = (await vault.platformFee()).accrued;
+      await vault.connect(operator).processWithdrawalRequests(holders.length);
+
+      // Entire supply burned, yet a positive time-based fee was charged on the pre-burn TVL.
+      expect(await vault.totalSupply()).to.equal(0n);
+      expect((await vault.platformFee()).accrued).to.be.greaterThan(accruedBefore);
+    });
+
+    it("charges the time-based platform fee on the PRE-burn TVL (fee-timing regression)", async function () {
+      // FEE_DENOMINATOR = 1e18 * 365 days in ms (mirrors the contract constant).
+      const FEE_DENOMINATOR = 31_536_000_000_000_000_000_000_000_000n;
+
+      const shares = ethers.parseUnits("1000", 18);
+      await vault.connect(user1).approve(await vault.getAddress(), shares);
+      await vault.connect(user1).redeemShares(shares, receiver1.address);
+
+      // Accrue a meaningful elapsed period so the fee is non-trivial.
+      await ethers.provider.send("evm_increaseTime", [30 * 24 * 3600]); // 30 days
+      await ethers.provider.send("evm_mine", []);
+
+      const feeBefore = await vault.platformFee();
+      const accruedBefore = feeBefore.accrued;
+      const feePct = feeBefore.platformFeePercentage;
+      const lastChargedAtBefore = feeBefore.lastChargedAt; // ms
+
+      // TVL right before processing (pre-burn). Stable until the process tx — no other ops
+      // change totalSupply/rate in between, and totalAssets() is independent of accrued fees.
+      const preTVL = await vault.totalAssets();
+
+      const tx = await vault.connect(operator).processWithdrawalRequests(1);
+      const rcpt = await tx.wait();
+      const block = await ethers.provider.getBlock(rcpt!.blockNumber);
+      const currentTimeMs = BigInt(block!.timestamp) * 1000n;
+      const elapsedMs = currentTimeMs - lastChargedAtBefore;
+
+      const charged = (await vault.platformFee()).accrued - accruedBefore;
+
+      // The fee charged equals the fee on the PRE-burn TVL for the elapsed period.
+      const expectedPreBurn = ((preTVL - accruedBefore) * feePct * elapsedMs) / FEE_DENOMINATOR;
+      expect(charged).to.equal(expectedPreBurn);
+
+      // And it strictly exceeds what the old (post-burn) ordering charged: the burned shares'
+      // assets no longer escape the final interval. This is the undercharge the fix closes.
+      const postTVL = await vault.totalAssets(); // reduced by the burned 1000 shares
+      const expectedPostBurn = ((postTVL - accruedBefore) * feePct * elapsedMs) / FEE_DENOMINATOR;
+      expect(postTVL).to.be.lt(preTVL);
+      expect(expectedPostBurn).to.be.lt(expectedPreBurn);
+      expect(charged).to.be.gt(expectedPostBurn);
+    });
+
     it("should emit ProcessRequestsSummary event with correct values", async function () {
       const shares1 = ethers.parseUnits("1000", 18);
       const shares2 = ethers.parseUnits("2000", 18);

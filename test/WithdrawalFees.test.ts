@@ -532,6 +532,34 @@ describe("EmberVault - Withdrawal Fees & Deposit Allow List", function () {
         ).to.be.revertedWithCustomError(protocolConfig, "InvalidValue");
       });
 
+      it("L-5: should revert when permanent fee exceeds 50%", async function () {
+        await expect(
+          protocolConfig
+            .connect(admin)
+            .updateVaultPermanentFeePercentage(vaultAddress, ethers.parseUnits("0.6", 18))
+        ).to.be.revertedWithCustomError(protocolConfig, "InvalidValue");
+      });
+
+      it("L-5: should allow a permanent fee of exactly 50%", async function () {
+        await expect(
+          protocolConfig
+            .connect(admin)
+            .updateVaultPermanentFeePercentage(vaultAddress, ethers.parseUnits("0.5", 18))
+        ).to.not.be.reverted;
+      });
+
+      it("L-5: should revert when permanent + time-based exceeds 50%", async function () {
+        // permanent 30% (ok alone), then time-based 30% -> combined 60% > 50% cap.
+        await protocolConfig
+          .connect(admin)
+          .updateVaultPermanentFeePercentage(vaultAddress, ethers.parseUnits("0.3", 18));
+        await expect(
+          protocolConfig
+            .connect(admin)
+            .updateVaultTimeBasedFeePercentage(vaultAddress, ethers.parseUnits("0.3", 18))
+        ).to.be.revertedWithCustomError(protocolConfig, "InvalidValue");
+      });
+
       it("should revert when setting same value", async function () {
         await expect(
           protocolConfig.connect(admin).updateVaultPermanentFeePercentage(vaultAddress, 0n)
@@ -671,13 +699,17 @@ describe("EmberVault - Withdrawal Fees & Deposit Allow List", function () {
       expect(lastDeposit).to.be.gt(0n);
     });
 
-    it("should record lastDepositTimestamp for receiver on deposit", async function () {
+    it("M-3: records lastDepositTimestamp for the DEPOSITOR, not the receiver", async function () {
       const depositAmount = ethers.parseUnits("1000", 18);
 
+      // Custodial deposit: user1 deposits, crediting user2's shares.
       await vault.connect(user1).deposit(depositAmount, user2.address);
 
-      const lastDepositReceiver = await validator.lastDepositTimestamp(vaultAddress, user2.address);
-      expect(lastDepositReceiver).to.be.gt(0n);
+      // M-3 depositor-keying: the depositor's (user1) anti-JIT clock moves; the receiver's
+      // (user2) stays unset — a dust deposit can't reset a victim's clock. Custodial recipients
+      // are handled via the fee-exemption list (see EmberVaultValidator.recordDeposit).
+      expect(await validator.lastDepositTimestamp(vaultAddress, user1.address)).to.be.gt(0n);
+      expect(await validator.lastDepositTimestamp(vaultAddress, user2.address)).to.equal(0n);
     });
 
     it("should update lastDepositTimestamp on subsequent deposits", async function () {

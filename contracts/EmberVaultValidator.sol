@@ -9,6 +9,15 @@ import "./interfaces/IEmberVault.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
 import "./libraries/Math.sol";
 
+/// @notice Minimal view surface used by `recordDepositFor` to authenticate the
+///         caller against the vault's registered parking lot. Only EmberVault
+///         exposes `parkingLot()`; the call reverts on vaults that do not have
+///         one (ALV, ETH vault), which is the correct behavior — `recordDepositFor`
+///         is meaningful only for parking-lot-mediated deposits.
+interface IEmberVaultWithParkingLot {
+  function parkingLot() external view returns (address);
+}
+
 /// @title EmberVaultValidator
 /// @notice Manages withdrawal fees, deposit allow lists, and fee exemptions for Ember vaults.
 ///         Deployed once and shared across all vaults. Each vault stores a reference to this contract.
@@ -122,12 +131,80 @@ contract EmberVaultValidator is
       revert DepositNotAllowed();
   }
 
-  /// @notice Records the last deposit timestamp for the receiver
-  /// @dev Only callable by the vault itself. Without this guard anyone could reset a
-  ///      user's deposit clock and force them to pay time-based withdrawal fees.
-  function recordDeposit(address vault, address receiver, uint256 timestamp) external {
+  /// @notice Records the last deposit timestamp against the depositor (msg.sender
+  ///         of the deposit call on the vault), NOT the receiver of the minted
+  ///         shares.
+  /// @dev    Only callable by the vault itself. Without this guard anyone could
+  ///         reset a user's deposit clock and force them to pay time-based
+  ///         withdrawal fees.
+  ///
+  ///         Keying by depositor closes the following griefing vector: originally
+  ///         callers passed the `receiver`, so anyone could submit a dust deposit
+  ///         naming a victim as receiver, which reset the victim's anti-JIT clock —
+  ///         their next processed withdrawal would then pay the time-based fee even
+  ///         though they never deposited. Post-fix, only the depositor's own clock
+  ///         moves.
+  ///
+  ///         Custodial-flow caveat: when depositor != receiver (a smart wallet, an
+  ///         aggregator, a bridge forwarder), the receiver's clock is not touched.
+  ///         If the receiver later withdraws with the shares they received, they will
+  ///         trip the "no recorded deposit → fee fires" branch of
+  ///         `calculateWithdrawalFees`. Operators must fee-exempt such recipients
+  ///         via `setFeeExemptionListStatus`.
+  function recordDeposit(address vault, address depositor, uint256 timestamp) external {
     if (msg.sender != vault) revert Unauthorized();
-    _lastDepositTimestamp[vault][receiver] = timestamp;
+    _lastDepositTimestamp[vault][depositor] = timestamp;
+  }
+
+  /// @notice Records the last-deposit timestamp on behalf of the ORIGINAL depositor
+  ///         when the deposit was forwarded by the vault's parking lot. Direct
+  ///         deposits use `recordDeposit`; the parking-lot flow needs this
+  ///         because at forward time the vault sees `msg.sender = parkingLot`
+  ///         and its `recordDeposit(vault, msg.sender, ts)` call would attribute
+  ///         the anti-JIT clock to the parking lot rather than the actual user.
+  /// @dev    Caller MUST be the vault's registered parking lot. Restricting to
+  ///         the parking lot (which authenticates the original depositor via
+  ///         its own request-tracking) keeps this from becoming a free
+  ///         grief primitive — only the trusted forwarder can attribute a
+  ///         deposit to a specific address on the vault's behalf.
+  ///
+  ///         Vaults without a parking lot (ALV, ETH vault) revert on the
+  ///         `parkingLot()` staticcall, naturally rejecting the auth attempt.
+  function recordDepositFor(address vault, address depositor, uint256 timestamp) external {
+    address lot = IEmberVaultWithParkingLot(vault).parkingLot();
+    if (lot == address(0) || msg.sender != lot) revert Unauthorized();
+    _lastDepositTimestamp[vault][depositor] = timestamp;
+  }
+
+  /// @notice M-3: amount-weighted last-deposit timestamp for the time-based (anti-JIT)
+  ///         withdrawal fee, keyed by the RECEIVER (the account that holds and later redeems
+  ///         the shares). Used by AtomicLiquidity, whose internal shares are non-transferable,
+  ///         so receiver-keying is safe once the weighting neutralizes dust-grief.
+  /// @dev    Only callable by the vault itself. Blends the deposit time into the receiver's
+  ///         existing clock by share weight:
+  ///           new_ts = (oldWeight*oldTs + newShares*now) / (oldWeight + newShares)
+  ///         where `oldWeight` is the receiver's share balance BEFORE this deposit plus any
+  ///         shares they have already queued for withdrawal (counting the queued shares keeps a
+  ///         mid-withdrawal receiver at full weight, so a dust deposit — even one front-running
+  ///         withdrawal processing — can't reset the clock the queued request reads). A receiver
+  ///         with no recorded clock weights `oldTs` as `now`, so a brand-new receiver
+  ///         (oldWeight == 0) records exactly `now`. The result lies in [oldTs, now], so it
+  ///         never records a future timestamp.
+  function recordWeightedDeposit(
+    address vault,
+    address receiver,
+    uint256 oldWeight,
+    uint256 newShares,
+    uint256 timestamp
+  ) external {
+    if (msg.sender != vault) revert Unauthorized();
+    uint256 denom = oldWeight + newShares;
+    // newShares > 0 at every real call site (deposit mints > 0 shares); guard defensively so a
+    // zero-weight call can never divide by zero.
+    if (denom == 0) return;
+    uint256 stored = _lastDepositTimestamp[vault][receiver];
+    uint256 oldTs = stored == 0 ? timestamp : stored;
+    _lastDepositTimestamp[vault][receiver] = (oldWeight * oldTs + newShares * timestamp) / denom;
   }
 
   /// @notice Calculates withdrawal fees for a given owner and amount
@@ -152,7 +229,16 @@ contract EmberVaultValidator is
       // If no deposit timestamp is recorded (e.g., shares received via transfer or bridge
       // mint), treat the holder as still within the lockout window so the time-based fee
       // cannot be bypassed by routing shares through a fresh address.
-      if (lastDeposit == 0 || lastDeposit + fee.timeBasedFeeThreshold > currentTime) {
+      //
+      // L-5: written overflow-safe. `timeBasedFeeThreshold` is admin-set with no upper bound,
+      // so the naive `lastDeposit + threshold > currentTime` could revert on a checked-add
+      // overflow and wedge the whole withdrawal loop. `threshold > currentTime - lastDeposit`
+      // is exactly equivalent (for currentTime >= lastDeposit) without the addition.
+      if (
+        lastDeposit == 0 ||
+        currentTime < lastDeposit ||
+        fee.timeBasedFeeThreshold > currentTime - lastDeposit
+      ) {
         timeBasedFeeCharged = FixedPointMath.mul(withdrawAmount, tbFeePercent);
       }
     }
@@ -257,7 +343,7 @@ contract EmberVaultValidator is
   }
 
   function version() external pure returns (string memory) {
-    return "v1.0.0";
+    return "v1.1.0";
   }
 
   function _authorizeUpgrade(address) internal override onlyOwner {}

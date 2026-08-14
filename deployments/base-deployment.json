@@ -4,7 +4,7 @@
   "contracts": {
     "protocolConfig": {
       "proxyAddress": "0x84D88084fCC244262060440CA16720dc019d952A",
-      "implementationAddress": "0xC2Fc14Aa7087CC541f203b7F8F28dCBCE126D7eb",
+      "implementationAddress": "0x12906a44A9F8473D1933913760d0C949CA3c2688",
       "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
       "version": "v2.2.0",
       "deployedAt": "2026-06-24T11:21:38.923Z",
@@ -12,7 +12,7 @@
     },
     "vaultValidator": {
       "proxyAddress": "0x0029D79bE73938A6dAab5DcAac8D2b994B9666eA",
-      "implementationAddress": "0x25838366FCEcEE61f6A877F5eEBFD00db2E3D215",
+      "implementationAddress": "0x418Cd347D0b6B863c4AeAdD67c79c8422ED974a2",
       "protocolConfigAddress": "0x84D88084fCC244262060440CA16720dc019d952A",
       "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
       "version": "v1.0.0",
@@ -43,20 +43,32 @@
     "vaults": {
       "emberHilbertBtc": {
         "proxyAddress": "0x9C2dCDbDB3F0A0F628D1112bBCABD9AE75353df3",
-        "implementationAddress": "0x1980D3e76debF8cdCf0C6039937eE2B500292Fe8",
+        "implementationAddress": "0x23Cc7E7e237D84B1Ec055e863097e864Aa282A1c",
         "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
         "name": "Ember Hilbert BTC",
         "receiptTokenSymbol": "hBTC",
         "collateralToken": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
         "admin": "0xBB509C90c70721C4500CcfecEa6864C568B33822",
-        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
-        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "operator": "0x6C5D5FB09FF589343Fad52868706144758A77D4A",
+        "rateManager": "0x7E7bDD37BBad61705dDd5fE8F298dD37e646c9ce",
         "protocolConfig": "0x84D88084fCC244262060440CA16720dc019d952A",
         "maxTVL": "50000000001",
         "version": "v2.2.0",
         "deployedAt": "2026-06-24T11:43:01.125Z",
         "deploymentBlockNumber": 47756016,
         "validatorAddress": "0x0029D79bE73938A6dAab5DcAac8D2b994B9666eA"
+      }
+    },
+    "depositParkingLots": {
+      "emberHilbertBtc": {
+        "proxyAddress": "0x30eca7F3d0c099385e830314C51Bb9E95657b84D",
+        "implementationAddress": "0x05c115b5d02136a5f80994816988b4b50e334058",
+        "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
+        "vault": "0x9C2dCDbDB3F0A0F628D1112bBCABD9AE75353df3",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "protocolConfig": "0x84D88084fCC244262060440CA16720dc019d952A",
+        "deployedAt": "2026-07-15T10:24:01.567Z",
+        "deploymentBlockNumber": 48661178
       }
     }
   }

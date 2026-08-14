@@ -31,7 +31,24 @@ interface IEmberVaultValidator {
 
   /// @notice Records the last deposit timestamp for the receiver
   /// @dev Called by the vault after a successful deposit
-  function recordDeposit(address vault, address receiver, uint256 timestamp) external;
+  function recordDeposit(address vault, address depositor, uint256 timestamp) external;
+
+  /// @notice Records the last-deposit timestamp on behalf of the original depositor
+  ///         for parking-lot-forwarded deposits. Callable only by the vault's
+  ///         registered parking lot.
+  function recordDepositFor(address vault, address depositor, uint256 timestamp) external;
+
+  /// @notice M-3: amount-weighted anti-JIT clock update, keyed by the share RECEIVER.
+  /// @dev Called by AtomicLiquidity after a deposit. Blends `timestamp` into the receiver's
+  ///      stored clock by share weight (see the implementation), so a fresh top-up can't let
+  ///      new shares inherit an aged clock, and a dust deposit can't reset a victim's clock.
+  function recordWeightedDeposit(
+    address vault,
+    address receiver,
+    uint256 oldWeight,
+    uint256 newShares,
+    uint256 timestamp
+  ) external;
 
   /// @notice Calculates withdrawal fees for a given owner and amount
   /// @dev Called by the vault during withdrawal processing

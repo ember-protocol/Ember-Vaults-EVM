@@ -8,6 +8,7 @@ type DeploymentInfo = {
     };
     vaults?: Record<string, VaultDeploymentRecord>;
     ethVaults?: Record<string, VaultDeploymentRecord>;
+    atomicLiquidityVaults?: Record<string, VaultDeploymentRecord>;
   };
 };
 
@@ -27,6 +28,7 @@ type VaultDeploymentRecord = {
  *   NEW_OPERATOR=0x... yarn admin:update-operator --network <NETWORK>
  *   NEW_OPERATOR=0x... VAULT_KEYS=<KEY_1>,<KEY_2> yarn admin:update-operator --network <NETWORK>
  *   NEW_OPERATOR=0x... IS_ETH_VAULT=true yarn admin:update-operator --network <NETWORK>
+ *   NEW_OPERATOR=0x... IS_ATOMIC=true yarn admin:update-operator --network <NETWORK>
  *
  * Required ENV variables:
  *   NEW_OPERATOR - Address of the new operator
@@ -35,6 +37,11 @@ type VaultDeploymentRecord = {
  *   VAULT_KEYS   - Comma-separated vault keys from deployment JSON
  *                  (omit to process all vaults in the selected collection)
  *   IS_ETH_VAULT - "true" to target ethVaults instead of vaults
+ *   IS_ATOMIC    - "true" to target atomicLiquidityVaults instead of vaults
+ *
+ * All collections route through EmberProtocolConfig.updateVaultOperator, which
+ * works uniformly for tokenized, ETH, and atomic-liquidity vaults (all implement
+ * the IEmberVault roles()/subAccounts()/setOperator interface).
  *
  * Notes:
  * - Only the vault ADMIN can change the operator. The signer must be admin
@@ -48,6 +55,11 @@ async function main() {
   console.log("\n👤 Updating Vault Operator...\n");
 
   const isEthVault = process.env.IS_ETH_VAULT === "true";
+  const isAtomic = process.env.IS_ATOMIC === "true";
+  if (isEthVault && isAtomic) {
+    console.error("❌ Error: set only one of IS_ETH_VAULT / IS_ATOMIC");
+    process.exit(1);
+  }
 
   const [signer] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
@@ -77,9 +89,11 @@ async function main() {
     process.exit(1);
   }
 
-  const vaults = isEthVault
-    ? deploymentInfo.contracts?.ethVaults
-    : deploymentInfo.contracts?.vaults;
+  const vaults = isAtomic
+    ? deploymentInfo.contracts?.atomicLiquidityVaults
+    : isEthVault
+      ? deploymentInfo.contracts?.ethVaults
+      : deploymentInfo.contracts?.vaults;
   if (!vaults || Object.keys(vaults).length === 0) {
     console.error("❌ Error: No vaults found in deployment file!");
     process.exit(1);
@@ -109,7 +123,7 @@ async function main() {
     process.exit(1);
   }
 
-  const contractName = isEthVault ? "EmberETHVault" : "EmberVault";
+  const contractName = isAtomic ? "AtomicLiquidity" : isEthVault ? "EmberETHVault" : "EmberVault";
 
   const vaultKeysEnv = process.env.VAULT_KEYS;
   let vaultKeysToProcess: string[];
@@ -135,7 +149,10 @@ async function main() {
 
   console.log("Protocol Config:", protocolConfigAddress);
   console.log("Target Operator:", newOperator);
-  console.log("Vault Type:", isEthVault ? "ethVaults" : "vaults");
+  console.log(
+    "Vault Type:",
+    isAtomic ? "atomicLiquidityVaults" : isEthVault ? "ethVaults" : "vaults"
+  );
 
   console.log("\n" + "=".repeat(70));
   console.log("📋 Vaults to Process:");

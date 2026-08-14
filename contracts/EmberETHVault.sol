@@ -24,6 +24,8 @@ import "./interfaces/IBridgeable.sol";
 import "./interfaces/IEmberVaultValidator.sol";
 import "./interfaces/IWETH.sol";
 import "./libraries/Math.sol"; // FixedPointMath library
+import "./libraries/VaultPlatformFeeLib.sol";
+import "./libraries/WithdrawalQueueLib.sol";
 
 // Custom errors
 error OperationPaused();
@@ -68,12 +70,7 @@ contract EmberETHVault is
 {
   using SafeERC20 for IERC20;
 
-  // Structs (identical to EmberVault)
-  struct PlatformFee {
-    uint256 accrued;
-    uint256 lastChargedAt;
-    uint256 platformFeePercentage;
-  }
+  // PlatformFee struct lives in VaultPlatformFeeLib (shared with EmberVault / AtomicLiquidity).
 
   struct Rate {
     uint256 value;
@@ -103,11 +100,7 @@ contract EmberETHVault is
     uint256 sequenceNumber;
   }
 
-  struct Account {
-    uint256 totalPendingWithdrawalShares;
-    uint256[] pendingWithdrawalRequestSequenceNumbers;
-    uint256[] cancelWithdrawRequestSequenceNumbers;
-  }
+  // Account struct lives in WithdrawalQueueLib (shared with AtomicLiquidity).
 
   struct VaultInitParams {
     string name;
@@ -124,7 +117,6 @@ contract EmberETHVault is
   }
 
   // Constants
-  uint256 private constant FEE_DENOMINATOR = 31_536_000_000_000_000_000_000_000_000;
   bytes32 private constant DEPOSITS_HASH = keccak256("deposits");
   bytes32 private constant WITHDRAWALS_HASH = keccak256("withdrawals");
   bytes32 private constant PRIVILEGED_OPS_HASH = keccak256("privilegedOperations");
@@ -136,7 +128,7 @@ contract EmberETHVault is
   uint256 public minWithdrawableShares;
   mapping(address => bool) public subAccounts;
 
-  PlatformFee public platformFee;
+  VaultPlatformFeeLib.PlatformFee public platformFee;
   Rate public rate;
   Roles public roles;
   IEmberProtocolConfig public protocolConfig;
@@ -145,7 +137,7 @@ contract EmberETHVault is
   uint256 public sequenceNumber;
   WithdrawalRequest[] public pendingWithdrawals;
   uint256 private withdrawalQueueStartIndex;
-  mapping(address => Account) public accounts;
+  mapping(address => WithdrawalQueueLib.Account) public accounts;
 
   /// @notice The authorized bridge adapter for cross-chain mint/burn operations
   address public bridgeAdapter;
@@ -352,6 +344,27 @@ contract EmberETHVault is
     uint256 timeBasedFeeCharged
   );
 
+  /// @notice A withdrawal payout could not be delivered to `receiver` during queue
+  ///         processing and was escrowed as a claimable ETH balance instead of reverting
+  ///         the batch. Recoverable via `claimWithdrawal` / `claimWithdrawalFor` (to the same
+  ///         receiver), `claimWithdrawalTo` (receiver redirects its own balance), or — if the
+  ///         receiver is permanently stuck — the owner's `recoverUnclaimedWithdrawal`.
+  event WithdrawalDeferred(address indexed receiver, uint256 requestSequenceNumber, uint256 amount);
+
+  /// @notice Emitted when an escrowed (previously undeliverable) withdrawal is delivered. Settles
+  ///         the receiver's aggregate `unclaimedWithdrawals` balance (which may span multiple
+  ///         deferred requests), so it links to a receiver rather than one request. `to` is where
+  ///         the ETH actually went: the original `receiver` for a normal {claimWithdrawal}/
+  ///         {claimWithdrawalFor}, or a different address for a receiver-redirect
+  ///         ({claimWithdrawalTo}) or an owner rescue ({recoverUnclaimedWithdrawal}).
+  event WithdrawalClaimed(
+    address indexed receiver,
+    address indexed to,
+    uint256 amount,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
   event ProcessRequestsSummary(
     address indexed vault,
     uint256 totalRequestProcessed,
@@ -502,7 +515,7 @@ contract EmberETHVault is
 
     uint256 currentTime = _getChainTimestampMs();
 
-    platformFee = PlatformFee({
+    platformFee = VaultPlatformFeeLib.PlatformFee({
       accrued: 0,
       lastChargedAt: currentTime,
       platformFeePercentage: params.feePercentage
@@ -747,9 +760,15 @@ contract EmberETHVault is
 
     uint256 currentTime = _getChainTimestampMs();
 
-    // Record last deposit timestamp for time-based withdrawal fee calculation
+    // Record the last-deposit timestamp against the depositor (msg.sender).
+    // See `EmberVaultValidator.recordDeposit` for the anti-JIT reason we key
+    // by depositor rather than receiver. Using msg.sender rather than the
+    // local `depositor` param is important on the ETH-wrap paths (`depositETH`
+    // / `mintWithETH`), where `depositor` is `address(this)` after the WETH
+    // wrap — recording that would attribute the deposit to the vault itself
+    // instead of the actual user.
     if (address(vaultValidator) != address(0)) {
-      vaultValidator.recordDeposit(address(this), receiver, currentTime);
+      vaultValidator.recordDeposit(address(this), msg.sender, currentTime);
     }
 
     uint256 currentSequenceNumber = sequenceNumber;
@@ -813,9 +832,15 @@ contract EmberETHVault is
 
     uint256 currentTime = _getChainTimestampMs();
 
-    // Record last deposit timestamp for time-based withdrawal fee calculation
+    // Record the last-deposit timestamp against the depositor (msg.sender).
+    // See `EmberVaultValidator.recordDeposit` for the anti-JIT reason we key
+    // by depositor rather than receiver. Using msg.sender rather than the
+    // local `depositor` param is important on the ETH-wrap paths (`depositETH`
+    // / `mintWithETH`), where `depositor` is `address(this)` after the WETH
+    // wrap — recording that would attribute the deposit to the vault itself
+    // instead of the actual user.
     if (address(vaultValidator) != address(0)) {
-      vaultValidator.recordDeposit(address(this), receiver, currentTime);
+      vaultValidator.recordDeposit(address(this), msg.sender, currentTime);
     }
 
     uint256 currentSequenceNumber = sequenceNumber;
@@ -1217,6 +1242,9 @@ contract EmberETHVault is
 
     if (configProxy.isAccountBlacklisted(shareOwner)) revert Blacklisted();
     if (configProxy.isAccountBlacklisted(receiver)) revert Blacklisted();
+    // Reject a null receiver: such a request would be queued, then revert at processing time
+    // on the transfer to address(0), freezing the FIFO withdrawal queue at the head.
+    if (receiver == address(0)) revert ZeroAddress();
 
     if (shares < minWithdrawableShares) revert InsufficientShares();
 
@@ -1244,7 +1272,14 @@ contract EmberETHVault is
     pendingWithdrawals.push(request);
 
     // Update account state
-    _updateAccountState(request, true, type(uint256).max);
+    WithdrawalQueueLib.updateAccountState(
+      accounts,
+      request.owner,
+      request.shares,
+      request.sequenceNumber,
+      true,
+      type(uint256).max
+    );
 
     uint256 totalShares = totalSupply();
     uint256 pendingSharesToBurn = balanceOf(address(this));
@@ -1274,7 +1309,7 @@ contract EmberETHVault is
     if (pauseStatus.withdrawals) revert OperationPaused();
 
     address requestOwner = msg.sender;
-    Account storage accountState = accounts[requestOwner];
+    WithdrawalQueueLib.Account storage accountState = accounts[requestOwner];
 
     if (accountState.totalPendingWithdrawalShares == 0) revert InvalidRequest();
 
@@ -1321,6 +1356,13 @@ contract EmberETHVault is
     if (pauseStatus.privilegedOperations) revert OperationPaused();
 
     if (numRequests == 0) revert ZeroAmount();
+
+    // Settle accrued time-based fees BEFORE burning any shares. The fee base nets accrued
+    // out of TVL, and the shares redeemed here were under management for the whole elapsed
+    // window (they remain in totalSupply until burned here). Charging after the burn loop
+    // prices that window against the post-burn (smaller) TVL and under-collects. Charge
+    // first to match the instant redeem/burn path.
+    _chargeAccruedPlatformFees();
 
     _incrementSequence();
 
@@ -1374,9 +1416,6 @@ contract EmberETHVault is
       withdrawalQueueStartIndex = startIndex;
     }
 
-    // Charge accrued platform fees
-    _chargeAccruedPlatformFees();
-
     emit ProcessRequestsSummary(
       address(this),
       counters[1],
@@ -1426,6 +1465,71 @@ contract EmberETHVault is
   }
 
   /**
+   * @notice Claims ETH owed to the caller from a withdrawal payout that could not be
+   *         delivered during processWithdrawalRequests (e.g. the receiver was a contract
+   *         that has since become able to accept ETH).
+   * @return amount The ETH transferred to the caller
+   */
+  function claimWithdrawal() external nonReentrant returns (uint256 amount) {
+    amount = _deliverUnclaimed(msg.sender, msg.sender);
+  }
+
+  /**
+   * @notice Claims a receiver's escrowed withdrawal on their behalf and pushes it to them.
+   * @dev Permissionless: the funds can only ever go to `receiver`, so anyone may trigger
+   *      delivery once the receiver can accept ETH again.
+   * @param receiver The address whose escrowed withdrawal is delivered
+   * @return amount The ETH transferred to `receiver`
+   */
+  function claimWithdrawalFor(address receiver) external nonReentrant returns (uint256 amount) {
+    amount = _deliverUnclaimed(receiver, receiver);
+  }
+
+  /// @notice Redirect the CALLER's own escrowed (undeliverable) withdrawal to `to`. Lets a
+  ///         receiver that can transact but cannot RECEIVE ETH (e.g. a contract with a reverting
+  ///         fallback) still recover its funds to a payable address. Moves only the caller's own
+  ///         escrow, so it requires no privilege.
+  /// @param to Destination for the caller's escrowed ETH
+  /// @return amount ETH transferred to `to`
+  function claimWithdrawalTo(address to) external nonReentrant returns (uint256 amount) {
+    if (to == address(0)) revert ZeroAddress();
+    amount = _deliverUnclaimed(msg.sender, to);
+  }
+
+  /// @notice Owner recovery for an escrowed withdrawal whose `receiver` can neither receive ETH
+  ///         nor call {claimWithdrawalTo} (a permanently-unpayable / dead receiver): redirects the
+  ///         receiver's full escrowed balance to `to`. Without this, such a balance would be
+  ///         locked forever (the plain claim can only ever push to the unpayable receiver, and the
+  ///         shares were already burned so the owner cannot re-withdraw).
+  /// @dev Moves user funds, so it is gated to the UUPS `owner` — which MUST be the timelock and/or
+  ///      multisig (same trust tier as {_authorizeUpgrade}), giving a public delay before any
+  ///      recovery executes. The owner is trusted to invoke this only for a genuinely stuck escrow
+  ///      and to direct it to the rightful party (identifiable off-chain from `WithdrawalDeferred`).
+  /// @param receiver The stuck escrow key (the original withdrawal receiver)
+  /// @param to Destination for the recovered ETH
+  /// @return amount ETH transferred to `to`
+  function recoverUnclaimedWithdrawal(
+    address receiver,
+    address to
+  ) external nonReentrant onlyOwner returns (uint256 amount) {
+    if (to == address(0)) revert ZeroAddress();
+    amount = _deliverUnclaimed(receiver, to);
+  }
+
+  /// @dev Shared core for every escrow settlement (normal claim, receiver-redirect, owner rescue):
+  ///      zero the receiver's escrow (effects before interaction), then push it to `to`. A revert
+  ///      on a failed send rolls back the zeroing, so the balance stays recoverable.
+  function _deliverUnclaimed(address receiver, address to) internal returns (uint256 amount) {
+    amount = unclaimedWithdrawals[receiver];
+    if (amount == 0) revert ZeroAmount();
+    unclaimedWithdrawals[receiver] = 0;
+    _incrementSequence();
+    (bool success, ) = to.call{ value: amount }("");
+    if (!success) revert ETHTransferFailed();
+    emit WithdrawalClaimed(receiver, to, amount, _getChainTimestampMs(), sequenceNumber);
+  }
+
+  /**
    * @notice Execute withdrawal with WETH unwrapping and fee calculation
    */
   function _executeWithdrawalWithETH(
@@ -1436,7 +1540,7 @@ contract EmberETHVault is
     internal
     returns (bool cancelled, bool skipped, uint256 sharesBurnt, uint256 finalWithdrawAmount)
   {
-    Account storage accountState = accounts[request.owner];
+    WithdrawalQueueLib.Account storage accountState = accounts[request.owner];
 
     // Check if cancelled
     (cancelled, ) = _checkCancellation(request.sequenceNumber, accountState);
@@ -1482,12 +1586,26 @@ contract EmberETHVault is
       // Unwrap WETH to ETH
       IWETH(asset()).withdraw(withdrawAmount);
 
-      // Send ETH to receiver
+      // Send ETH to receiver. If delivery fails (e.g. a contract receiver with a
+      // reverting fallback), escrow the ETH as a claimable balance instead of reverting
+      // — otherwise a single unpayable receiver at the head would wedge the entire FIFO
+      // withdrawal queue behind it. The ETH is already unwrapped and stays in this
+      // contract until claimWithdrawal(For) delivers it.
       (bool success, ) = request.receiver.call{ value: withdrawAmount }("");
-      if (!success) revert ETHTransferFailed();
+      if (!success) {
+        unclaimedWithdrawals[request.receiver] += withdrawAmount;
+        emit WithdrawalDeferred(request.receiver, request.sequenceNumber, withdrawAmount);
+      }
     }
 
-    _updateAccountState(request, false, indexToUse);
+    WithdrawalQueueLib.updateAccountState(
+      accounts,
+      request.owner,
+      request.shares,
+      request.sequenceNumber,
+      false,
+      indexToUse
+    );
   }
 
   /**
@@ -1495,7 +1613,7 @@ contract EmberETHVault is
    */
   function _checkCancellation(
     uint256 requestSeqNum,
-    Account storage accountState
+    WithdrawalQueueLib.Account storage accountState
   ) internal view returns (bool isCancelled, uint256 cancelIndex) {
     uint256[] storage cancelSeqNums = accountState.cancelWithdrawRequestSequenceNumbers;
     cancelIndex = type(uint256).max;
@@ -1516,7 +1634,7 @@ contract EmberETHVault is
    */
   function _findCancelIndex(
     uint256 requestSeqNum,
-    Account storage accountState
+    WithdrawalQueueLib.Account storage accountState
   ) internal view returns (uint256) {
     uint256[] storage cancelSeqNums = accountState.cancelWithdrawRequestSequenceNumbers;
 
@@ -1545,62 +1663,6 @@ contract EmberETHVault is
     return
       configProxy.isAccountBlacklisted(request.owner) ||
       configProxy.isAccountBlacklisted(request.receiver);
-  }
-
-  /**
-   * @notice Update account state for withdrawal tracking
-   */
-  function _updateAccountState(WithdrawalRequest memory request, bool add, uint256 index) internal {
-    if (add && index != type(uint256).max) revert InvalidRequest();
-
-    Account storage accountState = accounts[request.owner];
-
-    if (add) {
-      unchecked {
-        accountState.totalPendingWithdrawalShares += request.shares;
-      }
-      accountState.pendingWithdrawalRequestSequenceNumbers.push(request.sequenceNumber);
-    } else {
-      if (accountState.totalPendingWithdrawalShares < request.shares) revert InsufficientShares();
-      unchecked {
-        accountState.totalPendingWithdrawalShares -= request.shares;
-      }
-
-      uint256[] storage pendingSeqNums = accountState.pendingWithdrawalRequestSequenceNumbers;
-      uint256 pendingLength = pendingSeqNums.length;
-      if (pendingLength == 0) revert InvalidRequest();
-
-      uint256 reqSeqNum = request.sequenceNumber;
-
-      uint256 seqNumIndex = 0;
-      bool found = false;
-      for (uint256 i; i < pendingLength; ) {
-        if (pendingSeqNums[i] == reqSeqNum) {
-          seqNumIndex = i;
-          found = true;
-          break;
-        }
-        unchecked {
-          i++;
-        }
-      }
-
-      if (!found) revert InvalidRequest();
-
-      pendingSeqNums[seqNumIndex] = pendingSeqNums[pendingLength - 1];
-      pendingSeqNums.pop();
-
-      // If this was a cancelled request, remove from cancel list
-      if (index != type(uint256).max) {
-        uint256[] storage cancelSeqNums = accountState.cancelWithdrawRequestSequenceNumbers;
-        uint256 cancelLength = cancelSeqNums.length;
-
-        if (index >= cancelLength) revert IndexOutOfBounds();
-
-        cancelSeqNums[index] = cancelSeqNums[cancelLength - 1];
-        cancelSeqNums.pop();
-      }
-    }
   }
 
   /**
@@ -1734,51 +1796,19 @@ contract EmberETHVault is
    * @notice Charge accrued platform fees
    */
   function _chargeAccruedPlatformFees() internal {
-    uint256 currentTime = _getChainTimestampMs();
-    uint256 timeSinceLastCharge = currentTime - platformFee.lastChargedAt;
-
-    if (timeSinceLastCharge == 0) return;
-
-    uint256 totalShares = totalSupply();
-    if (totalShares == 0) {
-      platformFee.lastChargedAt = currentTime;
-      return;
+    uint256 nextSeq;
+    unchecked {
+      nextSeq = sequenceNumber + 1;
     }
-
-    uint256 currentTotalAssets = totalAssets();
-    uint256 feePercentage = platformFee.platformFeePercentage;
-
-    // Exclude already-accrued fees from the TVL used for fee calculation so fees
-    // do not compound on themselves. Mirrors EmberVault._chargeAccruedPlatformFees.
-    uint256 alreadyAccrued = platformFee.accrued;
-    uint256 tvlForFeeCalc = currentTotalAssets > alreadyAccrued
-      ? currentTotalAssets - alreadyAccrued
-      : 0;
-
-    if (tvlForFeeCalc == 0) {
-      platformFee.lastChargedAt = currentTime;
-      return;
+    bool didCharge = VaultPlatformFeeLib.charge(
+      platformFee,
+      totalAssets(),
+      _getChainTimestampMs(),
+      nextSeq
+    );
+    if (didCharge) {
+      sequenceNumber = nextSeq;
     }
-
-    uint256 accruedFee = (tvlForFeeCalc * feePercentage * timeSinceLastCharge) / FEE_DENOMINATOR;
-
-    if (accruedFee > 0) {
-      platformFee.accrued += accruedFee;
-
-      unchecked {
-        sequenceNumber++;
-      }
-
-      emit VaultPlatformFeeCharged(
-        address(this),
-        accruedFee,
-        platformFee.accrued,
-        currentTime,
-        sequenceNumber
-      );
-    }
-
-    platformFee.lastChargedAt = currentTime;
   }
 
   // ============================================
@@ -1860,7 +1890,7 @@ contract EmberETHVault is
    * @notice Get vault version
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.2.0-eth";
+    return "v2.2.1-eth";
   }
 
   /**
@@ -1902,7 +1932,7 @@ contract EmberETHVault is
       uint256[] memory cancelledRequestIds
     )
   {
-    Account storage accountState = accounts[account];
+    WithdrawalQueueLib.Account storage accountState = accounts[account];
     return (
       accountState.totalPendingWithdrawalShares,
       accountState.pendingWithdrawalRequestSequenceNumbers,
@@ -1956,8 +1986,15 @@ contract EmberETHVault is
   /// @notice Validator contract for withdrawal fees and deposit allow lists
   IEmberVaultValidator public vaultValidator;
 
+  /// @notice ETH owed to a receiver whose withdrawal payout could not be delivered during
+  ///         `processWithdrawalRequests` (e.g. a contract receiver with a reverting
+  ///         fallback). Escrowed here so one unpayable receiver can't wedge the FIFO
+  ///         withdrawal queue; claimed via `claimWithdrawal` / `claimWithdrawalFor`.
+  mapping(address => uint256) public unclaimedWithdrawals;
+
   /**
-   * @dev Reserved storage gap for future upgrades
+   * @dev Reserved storage gap for future upgrades. Decremented by 1 when
+   *      `unclaimedWithdrawals` was added so the post-`__gap` layout is unchanged.
    */
-  uint256[49] private __gap;
+  uint256[48] private __gap;
 }

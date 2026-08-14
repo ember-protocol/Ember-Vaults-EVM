@@ -11,6 +11,8 @@ ERC-4626 compliant vaults with advanced features including **custom rate-based s
 
 - **[Architecture Overview](./docs/ARCHITECTURE.md)** - Understanding the custom rate-based ERC-4626 implementation
 - **[Contract API Reference](./docs/CONTRACTS.md)** - Complete API documentation for all contracts
+- **[AtomicLiquidity Vault](./docs/AtomicLiquidity.md)** - Tokenless rate-based vault with instant withdraw, ERC-4626 strategy, and the cross-vault EmberShare swap
+- **[EmberETHVault](./contracts/EmberETHVault.README.md)** - ETH/WETH vault variant (ERC-4626 over WETH, native-ETH user withdrawals)
 - **[Deployment Guide](./docs/DEPLOYMENT.md)** - How to deploy and interact with contracts
 - **[Development Guide](./docs/DEVELOPMENT.md)** - Setup, testing, and development workflow
 - **[Access Control & Roles](./docs/ACCESS_CONTROL.md)** - Multi-role system and permissions
@@ -106,13 +108,16 @@ Standard `withdraw()` and `redeem()` are disabled. Users must:
 ember-vaults-evm-smart-contracts/
 ├── contracts/                              # Solidity smart contracts
 │   ├── interfaces/                         # Contract interfaces
-│   ├── libraries/                          # Math library (FixedPointMath)
+│   ├── libraries/                          # Math + AtomicLiquidityLib (swap/holdback logic)
 │   ├── testing/                            # Testing contracts
 │   ├── EmberVault.sol                      # Main ERC-4626 vault
+│   ├── EmberETHVault.sol                   # ETH/WETH vault variant (ERC-4626 over WETH)
+│   ├── AtomicLiquidity.sol                 # Tokenless rate-based vault (instant withdraw, strategy, EmberShare swap)
 │   └── EmberProtocolConfig.sol             # Protocol configuration
 ├── docs/                                   # Documentation
 │   ├── ARCHITECTURE.md                     # Rate-based system explained
 │   ├── CONTRACTS.md                        # API reference
+│   ├── AtomicLiquidity.md                  # AtomicLiquidity vault reference
 │   ├── DEPLOYMENT.md                       # Deployment guide
 │   ├── DEVELOPMENT.md                      # Development guide
 │   └── ACCESS_CONTROL.md                   # Roles and permissions
