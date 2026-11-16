@@ -80,7 +80,10 @@ async function main() {
   // Get adapter and token contracts
   const adapter = await ethers.getContractAt("EmberVaultOFTAdapter", adapterInfo.address);
   const tokenAddress = await adapter.token();
-  const token = await ethers.getContractAt("IERC20Metadata", tokenAddress);
+  const token = await ethers.getContractAt(
+    "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol:IERC20Metadata",
+    tokenAddress
+  );
 
   // Get token details
   const tokenDecimals = await token.decimals();

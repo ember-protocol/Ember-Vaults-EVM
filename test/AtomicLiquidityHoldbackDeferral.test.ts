@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import type {
@@ -120,6 +120,195 @@ describe("AtomicLiquidity - holdback transfer deferral", function () {
     // Entry recorded as settled; funds are claimable.
     expect((await vault.getHoldbackEntry(shareAddr, 0)).released).to.equal(EXPECTED_HOLDBACK);
     expect(await vault.unclaimedHoldback(blocked.address)).to.equal(EXPECTED_HOLDBACK);
+  });
+
+  // A holdback payout is collateral leaving the vault to a user, just deferred. The withdrawal
+  // allow-list is enforced on redeem, instant withdraw and the swap for exactly that reason, so
+  // the release pass has to ask the same question — otherwise an address removed from the list
+  // after its swap still gets paid, which is the gap the list exists to close.
+  describe("withdrawal allow-list", function () {
+    let validator: any;
+
+    async function attachValidator() {
+      validator = await upgrades.deployProxy(
+        await ethers.getContractFactory("EmberVaultValidator"),
+        [await protocolConfig.getAddress(), owner.address],
+        { initializer: "initialize", kind: "uups" }
+      );
+      await protocolConfig
+        .connect(admin)
+        .setVaultValidator(await vault.getAddress(), await validator.getAddress());
+      return validator;
+    }
+
+    it("pays out normally while the list is empty", async function () {
+      const shareAddr = await emberVault.getAddress();
+      await attachValidator();
+      // An empty list means unrestricted, so nothing changes for an ordinary release.
+      // `blocked` is also the swap receiver, so compare the delta rather than the balance.
+      const before = await collateral.balanceOf(blocked.address);
+      await vault.connect(operator).releaseUsersHoldback(shareAddr, ONE, 10n);
+      expect((await collateral.balanceOf(blocked.address)) - before).to.equal(EXPECTED_HOLDBACK);
+      expect(await vault.holdbackQueueStartIndex(shareAddr)).to.equal(1n);
+    });
+
+    // The allow-list is a softer control than the blacklist: being absent from it is not
+    // wrongdoing, so the entitlement has to survive. It is escrowed, not forfeited.
+    it("escrows a recipient the list does not permit, and advances the queue", async function () {
+      const shareAddr = await emberVault.getAddress();
+      const vaultAddr = await vault.getAddress();
+      await attachValidator();
+
+      // Put someone else on the list. The list is now non-empty, so `blocked` is barred.
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, alice.address, true);
+
+      const before = await collateral.balanceOf(blocked.address);
+      await expect(vault.connect(operator).releaseUsersHoldback(shareAddr, ONE, 10n)).to.emit(
+        vault,
+        "HoldbackTransferDeferred"
+      );
+
+      // Not paid out, but the entitlement is preserved as a claimable balance.
+      expect(await collateral.balanceOf(blocked.address)).to.equal(before);
+      expect(await vault.unclaimedHoldback(blocked.address)).to.equal(EXPECTED_HOLDBACK);
+      // The head still advanced: one barred recipient must not wedge the tail.
+      expect(await vault.holdbackQueueStartIndex(shareAddr)).to.equal(1n);
+      expect(await vault.getPendingHoldbackEntries(shareAddr)).to.equal(0n);
+      // Entry recorded as settled at its full value, not zeroed.
+      expect((await vault.getHoldbackEntry(shareAddr, 0)).released).to.equal(EXPECTED_HOLDBACK);
+    });
+
+    it("refuses the claim while the recipient is still off the list", async function () {
+      const shareAddr = await emberVault.getAddress();
+      const vaultAddr = await vault.getAddress();
+      await attachValidator();
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, alice.address, true);
+      await vault.connect(operator).releaseUsersHoldback(shareAddr, ONE, 10n);
+
+      // Escrowing must not become a side door: every user-facing claim carries the same check.
+      await expect(vault.connect(blocked).claimHoldback()).to.be.revertedWithCustomError(
+        vault,
+        "WithdrawNotAllowed"
+      );
+      await expect(
+        vault.connect(operator).claimHoldbackFor(blocked.address)
+      ).to.be.revertedWithCustomError(vault, "WithdrawNotAllowed");
+      // Nor via redirection to an address that IS listed.
+      await expect(
+        vault.connect(blocked).claimHoldbackTo(alice.address)
+      ).to.be.revertedWithCustomError(vault, "WithdrawNotAllowed");
+
+      expect(await vault.unclaimedHoldback(blocked.address)).to.equal(EXPECTED_HOLDBACK);
+    });
+
+    // The previous case has an UNLISTED caller, so claimHoldbackTo short-circuits on the caller
+    // and never reaches the destination check — deleting `_withdrawAllowed(to)` would leave it
+    // green. This pins the other half: a listed holder must not be able to route its escrow to
+    // an address the list bars.
+    it("refuses a listed caller redirecting to an unlisted destination", async function () {
+      const shareAddr = await emberVault.getAddress();
+      const vaultAddr = await vault.getAddress();
+      await attachValidator();
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, alice.address, true);
+      await vault.connect(operator).releaseUsersHoldback(shareAddr, ONE, 10n);
+      expect(await vault.unclaimedHoldback(blocked.address)).to.equal(EXPECTED_HOLDBACK);
+
+      // Now list the holder, so the CALLER check passes and the destination is what decides.
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, blocked.address, true);
+      expect(await vault.connect(blocked).claimHoldback.staticCall()).to.equal(EXPECTED_HOLDBACK);
+
+      // rateManager is deliberately never listed.
+      await expect(
+        vault.connect(blocked).claimHoldbackTo(rateManager.address)
+      ).to.be.revertedWithCustomError(vault, "WithdrawNotAllowed");
+
+      // The escrow is intact — a refused redirect must not consume the balance.
+      expect(await vault.unclaimedHoldback(blocked.address)).to.equal(EXPECTED_HOLDBACK);
+
+      // And the same caller can still take it to a listed address.
+      const before = await collateral.balanceOf(alice.address);
+      await vault.connect(blocked).claimHoldbackTo(alice.address);
+      expect((await collateral.balanceOf(alice.address)) - before).to.equal(EXPECTED_HOLDBACK);
+    });
+
+    it("releases the escrow once the recipient is added to the list", async function () {
+      const shareAddr = await emberVault.getAddress();
+      const vaultAddr = await vault.getAddress();
+      await attachValidator();
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, alice.address, true);
+      await vault.connect(operator).releaseUsersHoldback(shareAddr, ONE, 10n);
+      expect(await vault.unclaimedHoldback(blocked.address)).to.equal(EXPECTED_HOLDBACK);
+
+      // Listing them later makes the escrowed payout claimable — nothing was destroyed.
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, blocked.address, true);
+
+      const before = await collateral.balanceOf(blocked.address);
+      await vault.connect(blocked).claimHoldback();
+      expect((await collateral.balanceOf(blocked.address)) - before).to.equal(EXPECTED_HOLDBACK);
+      expect(await vault.unclaimedHoldback(blocked.address)).to.equal(0n);
+    });
+
+    it("owner recovery stays open for a recipient that is never listed", async function () {
+      const shareAddr = await emberVault.getAddress();
+      const vaultAddr = await vault.getAddress();
+      await attachValidator();
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, alice.address, true);
+      await vault.connect(operator).releaseUsersHoldback(shareAddr, ONE, 10n);
+
+      // Deliberately NOT allow-list gated: it is the escape hatch. Gating it would lock the
+      // escrow forever whenever the recipient is never listed — reintroducing exactly the
+      // permanent loss that escrowing instead of forfeiting was meant to remove.
+      const before = await collateral.balanceOf(alice.address);
+      await vault.connect(owner).recoverUnclaimedHoldback(blocked.address, alice.address);
+      expect((await collateral.balanceOf(alice.address)) - before).to.equal(EXPECTED_HOLDBACK);
+      expect(await vault.unclaimedHoldback(blocked.address)).to.equal(0n);
+    });
+
+    it("a blacklisted recipient still forfeits — the two gates differ", async function () {
+      const shareAddr = await emberVault.getAddress();
+      await attachValidator();
+
+      // No allow-list in play; the blacklist alone must still destroy the entitlement.
+      await protocolConfig.connect(owner).setBlacklistedAccount(blocked.address, true);
+
+      const before = await collateral.balanceOf(blocked.address);
+      await vault.connect(operator).releaseUsersHoldback(shareAddr, ONE, 10n);
+
+      expect(await collateral.balanceOf(blocked.address)).to.equal(before);
+      expect(await vault.unclaimedHoldback(blocked.address)).to.equal(0n);
+      expect(await vault.holdbackQueueStartIndex(shareAddr)).to.equal(1n);
+    });
+
+    it("pays out once the recipient is added to the list", async function () {
+      const shareAddr = await emberVault.getAddress();
+      const vaultAddr = await vault.getAddress();
+      await attachValidator();
+
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, alice.address, true);
+      await protocolConfig
+        .connect(operator)
+        .setVaultWithdrawAllowList(vaultAddr, blocked.address, true);
+
+      const before = await collateral.balanceOf(blocked.address);
+      await vault.connect(operator).releaseUsersHoldback(shareAddr, ONE, 10n);
+      expect((await collateral.balanceOf(blocked.address)) - before).to.equal(EXPECTED_HOLDBACK);
+    });
   });
 
   it("blocks the claim while the recipient is still unpayable", async function () {

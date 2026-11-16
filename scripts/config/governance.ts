@@ -26,6 +26,8 @@ const OWNER_TIMELOCK_PROPOSER = "0x203d4ceC733Dcda6eD87bd3b7aB6cb37149201C2"; //
 const TIMELOCK_EXECUTOR = "0xA2160f1dee338b921D13c9d02a7E2caDB02aF38f"; // KMS
 const TIMELOCK_CANCELLER = "0x71aA7564fAE10A393F2Bf0efA9E6350d872f07f7"; // KMS
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 // Shared role holders (same on every chain).
 const RATE_OPERATOR = "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D"; // multisig
 const OPERATOR = "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738"; // ops signer
@@ -73,6 +75,16 @@ const SHARED_TIMELOCK_ROLES: GovernanceExpectation["timelocks"] = {
   },
 };
 
+function testnetGovernance(deployer: string): GovernanceExpectation {
+  const roles = { proposer: deployer, executor: ZERO_ADDRESS, canceller: deployer };
+  return {
+    rateOperator: "0xFEa83f912CF21d884CDfb66640CfAB6029D940aF",
+    operator: "0xc4E3DafED9A7C5f2AcBf76d1ACeEb17514CC637C", // staging vault-ops KMS wallet
+    guardian: deployer,
+    timelocks: { admin: roles, owner: roles },
+  };
+}
+
 export const GOVERNANCE: Record<string, GovernanceExpectation> = {
   mainnet: {
     rateOperator: RATE_OPERATOR,
@@ -102,4 +114,23 @@ export const GOVERNANCE: Record<string, GovernanceExpectation> = {
     guardian: GUARDIAN,
     timelocks: SHARED_TIMELOCK_ROLES,
   },
+  // Pin expectedTimelocks once the monad timelocks are deployed.
+  monad: {
+    rateOperator: RATE_OPERATOR,
+    operator: OPERATOR,
+    guardian: GUARDIAN,
+    timelocks: SHARED_TIMELOCK_ROLES,
+  },
+  arbitrum: {
+    rateOperator: RATE_OPERATOR,
+    operator: OPERATOR,
+    guardian: GUARDIAN,
+    expectedTimelocks: {
+      admin: "0x02f2a70C7c681F886D69d376Fb353C34D2d5E5c9",
+      owner: "0x0Fc935a46c7Bad175b2962D26aa4DEF02e5371dA",
+    },
+    timelocks: SHARED_TIMELOCK_ROLES,
+  },
+  // Testnet: the deployer proposes/cancels and guards; execution is open.
+  monadTestnet: testnetGovernance("0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"),
 };

@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { getImplementationAddressWithRetry } from "../utils/erc1967";
 import * as fs from "fs";
 
 /**
@@ -196,7 +197,7 @@ async function main() {
     console.log("📦 Deployed in block:", deploymentBlockNumber);
   }
 
-  const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+  const implementationAddress = await getImplementationAddressWithRetry(proxyAddress);
   console.log("📝 Implementation address:", implementationAddress);
 
   const version = await vault.version();

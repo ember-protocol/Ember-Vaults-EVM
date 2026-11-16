@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { getImplementationAddressWithRetry } from "../utils/erc1967";
 import * as fs from "fs";
 
 /**
@@ -68,7 +69,7 @@ async function main() {
   await parkingLot.waitForDeployment();
 
   const proxyAddress = await parkingLot.getAddress();
-  const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+  const implementationAddress = await getImplementationAddressWithRetry(proxyAddress);
 
   const deploymentTx = parkingLot.deploymentTransaction();
   let deploymentBlockNumber = 0;

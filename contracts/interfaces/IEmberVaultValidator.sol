@@ -1,6 +1,7 @@
 pragma solidity ^0.8.22;
 
 error DepositNotAllowed();
+error WithdrawNotAllowed();
 
 /// @title Ember Vault Validator Interface
 /// @notice Interface for the validator contract that manages withdrawal fees and deposit allow lists
@@ -20,6 +21,8 @@ interface IEmberVaultValidator {
   function depositAllowList(address vault, address account) external view returns (bool);
   function lastDepositTimestamp(address vault, address account) external view returns (uint256);
   function depositAllowListCount(address vault) external view returns (uint256);
+  function withdrawAllowList(address vault, address account) external view returns (bool);
+  function withdrawAllowListCount(address vault) external view returns (uint256);
 
   // ============================================
   // Vault-Called Functions
@@ -28,6 +31,10 @@ interface IEmberVaultValidator {
   /// @notice Validates whether a depositor is allowed to deposit
   /// @dev Called by the vault during deposit. Reverts if not allowed.
   function validateDeposit(address vault, address depositor) external view;
+
+  /// @notice Validates whether an account is allowed to withdraw
+  /// @dev Called by the vault from redeemShares, for both the share owner and the receiver.
+  function validateWithdraw(address vault, address account) external view;
 
   /// @notice Records the last deposit timestamp for the receiver
   /// @dev Called by the vault after a successful deposit
@@ -66,6 +73,12 @@ interface IEmberVaultValidator {
   // ============================================
 
   function setDepositAllowListStatus(
+    address caller,
+    address vault,
+    address user,
+    bool status
+  ) external;
+  function setWithdrawAllowListStatus(
     address caller,
     address vault,
     address user,

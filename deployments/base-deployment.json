@@ -4,18 +4,18 @@
   "contracts": {
     "protocolConfig": {
       "proxyAddress": "0x84D88084fCC244262060440CA16720dc019d952A",
-      "implementationAddress": "0x12906a44A9F8473D1933913760d0C949CA3c2688",
+      "implementationAddress": "0xBa074570FF7d5Dd9BC2313aB78a2E78B6C481972",
       "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
-      "version": "v2.2.0",
+      "version": "v2.5.0",
       "deployedAt": "2026-06-24T11:21:38.923Z",
       "deploymentBlockNumber": 47754996
     },
     "vaultValidator": {
       "proxyAddress": "0x0029D79bE73938A6dAab5DcAac8D2b994B9666eA",
-      "implementationAddress": "0x418Cd347D0b6B863c4AeAdD67c79c8422ED974a2",
+      "implementationAddress": "0x40B8343E3F0cFa183794361282ABA8Cd52f12dA7",
       "protocolConfigAddress": "0x84D88084fCC244262060440CA16720dc019d952A",
       "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
-      "version": "v1.0.0",
+      "version": "v1.2.0",
       "deployedAt": "2026-06-24T11:23:26.614Z",
       "deploymentBlockNumber": 47755429
     },
@@ -43,7 +43,7 @@
     "vaults": {
       "emberHilbertBtc": {
         "proxyAddress": "0x9C2dCDbDB3F0A0F628D1112bBCABD9AE75353df3",
-        "implementationAddress": "0x23Cc7E7e237D84B1Ec055e863097e864Aa282A1c",
+        "implementationAddress": "0xca795b263aCF237f89d5830F60f5c0B57D2d2e91",
         "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
         "name": "Ember Hilbert BTC",
         "receiptTokenSymbol": "hBTC",
@@ -53,22 +53,73 @@
         "rateManager": "0x7E7bDD37BBad61705dDd5fE8F298dD37e646c9ce",
         "protocolConfig": "0x84D88084fCC244262060440CA16720dc019d952A",
         "maxTVL": "50000000001",
-        "version": "v2.2.0",
+        "version": "v2.7.0",
         "deployedAt": "2026-06-24T11:43:01.125Z",
         "deploymentBlockNumber": 47756016,
         "validatorAddress": "0x0029D79bE73938A6dAab5DcAac8D2b994B9666eA"
+      },
+      "emberHilbert": {
+        "proxyAddress": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+        "implementationAddress": "0xca795b263aCF237f89d5830F60f5c0B57D2d2e91",
+        "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
+        "name": "Ember Hilbert",
+        "receiptTokenSymbol": "hLEND",
+        "collateralToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "admin": "0xBB509C90c70721C4500CcfecEa6864C568B33822",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0x84D88084fCC244262060440CA16720dc019d952A",
+        "maxTVL": "15000000000000",
+        "version": "v2.7.0",
+        "deployedAt": "2026-09-14T10:28:20.619Z",
+        "deploymentBlockNumber": 51296176,
+        "validatorAddress": "0x0029D79bE73938A6dAab5DcAac8D2b994B9666eA"
+      },
+      "enigmaOneUsd": {
+        "proxyAddress": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+        "implementationAddress": "0xca795b263aCF237f89d5830F60f5c0B57D2d2e91",
+        "ownerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "name": "Enigma ONE USD",
+        "receiptTokenSymbol": "oneUSD",
+        "collateralToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "admin": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "operator": "0x6C5D5FB09FF589343Fad52868706144758A77D4A",
+        "rateManager": "0x7E7bDD37BBad61705dDd5fE8F298dD37e646c9ce",
+        "protocolConfig": "0x84D88084fCC244262060440CA16720dc019d952A",
+        "maxTVL": "5000000000000",
+        "version": "v2.7.0",
+        "deployedAt": "2026-09-28T12:14:26.628Z",
+        "deploymentBlockNumber": 51904158,
+        "validatorAddress": "0x0029D79bE73938A6dAab5DcAac8D2b994B9666eA",
+        "parkingLotAddress": "0x61C3F46c46607C87Bc118c7460471BF1a665cE0A",
+        "operatorUpdatedAt": "2026-09-28T14:37:45.348Z",
+        "upgradedAt": "2026-11-12T12:53:15.282Z",
+        "upgradedInBlock": 56488095
       }
     },
     "depositParkingLots": {
       "emberHilbertBtc": {
         "proxyAddress": "0x30eca7F3d0c099385e830314C51Bb9E95657b84D",
-        "implementationAddress": "0x05c115b5d02136a5f80994816988b4b50e334058",
+        "implementationAddress": "0x894559f02060AC28724e82a48345D553D5EDFc48",
         "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
         "vault": "0x9C2dCDbDB3F0A0F628D1112bBCABD9AE75353df3",
-        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "operator": "0x6C5D5FB09FF589343Fad52868706144758A77D4A",
         "protocolConfig": "0x84D88084fCC244262060440CA16720dc019d952A",
         "deployedAt": "2026-07-15T10:24:01.567Z",
-        "deploymentBlockNumber": 48661178
+        "deploymentBlockNumber": 48661178,
+        "version": "v1.4.0"
+      },
+      "enigmaOneUsd": {
+        "proxyAddress": "0x61C3F46c46607C87Bc118c7460471BF1a665cE0A",
+        "implementationAddress": "0x894559f02060AC28724e82a48345D553D5EDFc48",
+        "ownerAddress": "0x1281D2f0fcFfa7E92765309C98B0b945Ae29d786",
+        "vault": "0x918b37DC11d71a9F8A54Ea0d8B718f0bD5e54E25",
+        "operator": "0x6C5D5FB09FF589343Fad52868706144758A77D4A",
+        "protocolConfig": "0x84D88084fCC244262060440CA16720dc019d952A",
+        "deployedAt": "2026-09-28T01:22:23.000Z",
+        "deploymentBlockNumber": 51906198,
+        "operatorUpdatedAt": "2026-09-28T14:45:37.713Z",
+        "version": "v1.4.0"
       }
     }
   }

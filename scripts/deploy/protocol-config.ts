@@ -65,23 +65,21 @@ async function main() {
   const version = await config.version();
   console.log("📌 Contract version:", version);
 
-  // Save deployment information
-  const deploymentInfo = {
-    network: network.name,
-    chainId: network.chainId.toString(),
-    contracts: {
-      protocolConfig: {
-        proxyAddress: proxyAddress,
-        implementationAddress: implementationAddress,
-        ownerAddress: ownerAddress,
-        version: version,
-        deployedAt: new Date().toISOString(),
-        deploymentBlockNumber: deploymentBlockNumber,
-      },
-    },
+  // Save deployment information, keeping anything already recorded (e.g. timelocks)
+  const deploymentFileName = `./deployments/${network.name}-deployment.json`;
+  const deploymentInfo = fs.existsSync(deploymentFileName)
+    ? JSON.parse(fs.readFileSync(deploymentFileName, "utf8"))
+    : { network: network.name, chainId: network.chainId.toString(), contracts: {} };
+  deploymentInfo.contracts ??= {};
+  deploymentInfo.contracts.protocolConfig = {
+    proxyAddress: proxyAddress,
+    implementationAddress: implementationAddress,
+    ownerAddress: ownerAddress,
+    version: version,
+    deployedAt: new Date().toISOString(),
+    deploymentBlockNumber: deploymentBlockNumber,
   };
 
-  const deploymentFileName = `./deployments/${network.name}-deployment.json`;
   fs.writeFileSync(deploymentFileName, JSON.stringify(deploymentInfo, null, 2));
   console.log("\n✅ Deployment info saved to", deploymentFileName);
 

@@ -4,6 +4,7 @@ UUPS-proxy deployment scripts for the Ember vault system. Each appends/updates `
 
 ## Order for a fresh chain
 
+0. **`deploy:timelock`** — `timelock.ts` — run twice, `TIMELOCK_KEY=admin` and `TIMELOCK_KEY=owner`, with the proposer / executor / canceller set from `scripts/config/governance.ts`.
 1. **`deploy:protocol-config`** — `protocol-config.ts` — deploys `EmberProtocolConfig` (the registry that owns admin / fee config across all vaults).
 2. **`deploy:vault-validator`** — `vault-validator.ts` — deploys `EmberVaultValidator`. Reads the protocol config from the deployment file.
 3. **`deploy:deposit-token`** — `deposit-token.ts` — optional; deploys an ERC20 deposit token if you don't have one already (`TOKEN_NAME`, `TOKEN_SYMBOL`, `TOKEN_DECIMALS`).
@@ -11,6 +12,8 @@ UUPS-proxy deployment scripts for the Ember vault system. Each appends/updates `
    - Required: `VAULT_NAME`, `VAULT_RECEIPT_TOKEN_SYMBOL`, `VAULT_COLLATERAL_TOKEN`, `VAULT_ADMIN`, `VAULT_OPERATOR`, `VAULT_RATE_MANAGER`
 5. **`deploy:eth-vault`** — `ember-eth-vault.ts` — same as above but for an `EmberETHVault` (collateral must be a WETH contract).
 6. **`deploy:oft-adapter`** — `oft-adapter.ts` — deploys the LayerZero OFT adapter for a vault. Required: `VAULT_KEY`. After deploy, see [`scripts/bridge/README.md`](../bridge/README.md) for wiring.
+
+7. **Handover** — before the run is done, `update:ownership` every contract so `owner()` is the owner timelock and `roles().admin` is the admin timelock, then `verify:roles` must pass. Do deployer-only setup (guardian, validator, fees) before this step; after it, each one is a timelock op.
 
 ### Test-only
 

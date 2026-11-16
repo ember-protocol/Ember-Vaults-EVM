@@ -23,19 +23,22 @@ import {
  *   - yarn admin:gen-timelock-admin-transfers  (admin     -> admin timelock)
  *
  * Required ENV:
- *   CONTRACT_TYPE   vault | eth-vault | validator | protocol-config |
- *                   oft-adapter | custom
+ *   CONTRACT_TYPE   vault | eth-vault | atomic-vault | validator | protocol-config |
+ *                   oft-adapter | parking-lot | custom
  *
  * Selecting the target:
- *   VAULT_KEY        key under contracts.vaults / contracts.ethVaults
- *                    (required for vault / eth-vault)
+ *   VAULT_KEY        key under contracts.vaults / contracts.ethVaults /
+ *                    contracts.atomicLiquidityVaults
+ *                    (required for vault / eth-vault / atomic-vault)
  *   ADAPTER_KEY      key under contracts.oftAdapters (required for oft-adapter)
+ *   PARKING_LOT_KEY  key under contracts.depositParkingLots (required for parking-lot;
+ *                    falls back to VAULT_KEY)
  *   CONTRACT_ADDRESS explicit address (required for `custom`; optional override
  *                    for the singleton types)
  *
  * What to change (at least one required):
  *   NEW_OWNER        transfer ownership to this address (any type)
- *   NEW_ADMIN        set the vault admin to this address (vault / eth-vault only;
+ *   NEW_ADMIN        set the vault admin to this address (vault types only;
  *                    goes through protocolConfig.updateVaultAdmin, owner-gated)
  *
  * Execution mode:
@@ -49,9 +52,19 @@ import {
  *   CONTRACT_TYPE=protocol-config NEW_OWNER=0x... yarn update:ownership --network mainnet
  *   # execute:
  *   UPDATE=true CONTRACT_TYPE=vault VAULT_KEY=emberUdl NEW_ADMIN=0x... yarn update:ownership --network base
+ *   # atomic vault, both roles:
+ *   CONTRACT_TYPE=atomic-vault VAULT_KEY=emberAtomicInt. NEW_OWNER=0x... NEW_ADMIN=0x... yarn update:ownership --network mainnet
  */
 
-type TypeKey = "vault" | "eth-vault" | "validator" | "protocol-config" | "oft-adapter" | "custom";
+type TypeKey =
+  | "vault"
+  | "eth-vault"
+  | "atomic-vault"
+  | "validator"
+  | "protocol-config"
+  | "oft-adapter"
+  | "parking-lot"
+  | "custom";
 
 interface TargetSpec {
   /** Hardhat artifact name to attach to (undefined => generic Ownable ABI). */
@@ -84,9 +97,13 @@ function resolveTarget(type: TypeKey, deployment: any): TargetSpec {
 
   switch (type) {
     case "vault":
-    case "eth-vault": {
-      const group = type === "eth-vault" ? "ethVaults" : "vaults";
-      const contractName = type === "eth-vault" ? "EmberETHVault" : "EmberVault";
+    case "eth-vault":
+    case "atomic-vault": {
+      const { group, contractName } = {
+        vault: { group: "vaults", contractName: "EmberVault" },
+        "eth-vault": { group: "ethVaults", contractName: "EmberETHVault" },
+        "atomic-vault": { group: "atomicLiquidityVaults", contractName: "AtomicLiquidity" },
+      }[type];
       const map = contracts[group] || {};
       const key = process.env.VAULT_KEY?.trim();
       if (!key) {
@@ -148,6 +165,25 @@ function resolveTarget(type: TypeKey, deployment: any): TargetSpec {
         ownerField: "owner",
         supportsAdmin: false,
         label: `oftAdapters.${key}`,
+      };
+    }
+    case "parking-lot": {
+      const map = contracts.depositParkingLots || {};
+      const key = process.env.PARKING_LOT_KEY?.trim() || process.env.VAULT_KEY?.trim();
+      if (!key) {
+        console.log(`\nAvailable depositParkingLots:`);
+        Object.keys(map).forEach((k) => console.log(`  - ${k} (${map[k].proxyAddress})`));
+        fail("PARKING_LOT_KEY is required for CONTRACT_TYPE=parking-lot.");
+      }
+      const node = map[key!];
+      if (!node) fail(`Parking lot '${key}' not found under contracts.depositParkingLots.`);
+      return {
+        contractName: "EmberDepositParkingLot",
+        address: override || node.proxyAddress,
+        fileNode: node,
+        ownerField: "ownerAddress",
+        supportsAdmin: false,
+        label: `depositParkingLots.${key}`,
       };
     }
     case "custom": {
@@ -301,8 +337,8 @@ async function main() {
 
   if (!type) {
     fail(
-      "CONTRACT_TYPE is required. One of: vault | eth-vault | validator | " +
-        "protocol-config | oft-adapter | custom"
+      "CONTRACT_TYPE is required. One of: vault | eth-vault | atomic-vault | validator | " +
+        "protocol-config | oft-adapter | parking-lot | custom"
     );
   }
   if (!newOwner && !newAdmin) fail("Provide NEW_OWNER and/or NEW_ADMIN.");

@@ -3,123 +3,91 @@
   "chainId": "688689",
   "contracts": {
     "protocolConfig": {
-      "proxyAddress": "0x43150B26A9CA71c3ab614D2826E3FA64bD826CB8",
-      "implementationAddress": "0x3dF915c98af2F29BccAe715b29772A717bCc938b",
-      "ownerAddress": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-      "version": "v1.1.2",
-      "deployedAt": "2026-03-13T12:57:53.458Z",
-      "deploymentBlockNumber": 16009339
+      "proxyAddress": "0x8A85f38B1A4C0479e133e27Ecbe64b0b78174EBa",
+      "implementationAddress": "0xcfa57364634c989065B03275262d3935704b36fa",
+      "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+      "version": "v2.2.2",
+      "deployedAt": "2026-08-25T10:48:05.865Z",
+      "deploymentBlockNumber": 28777413
     },
     "depositTokens": {
-      "pUSDCpy": {
-        "proxyAddress": "0x42B0Ff0103B7D76b787abCd9409685977157BC22",
-        "implementationAddress": "0x9521319AF034d495C21023472A8A0C84BEA55e69",
-        "ownerAddress": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-        "name": "Pharos USDC prime y",
-        "symbol": "pUSDCpy",
-        "decimals": 6,
-        "version": "v1.0.0",
-        "deployedAt": "2026-03-16T07:25:26.148Z",
-        "deploymentBlockNumber": 16279340
-      },
       "USDC": {
-        "proxyAddress": "0x40185d3139aF4b9b7d3786ADF643a95446dD6d64",
-        "implementationAddress": "0x9521319AF034d495C21023472A8A0C84BEA55e69",
-        "ownerAddress": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-        "name": "USDC",
+        "proxyAddress": "0x97669d448f36253982E23d0EffE1D0b218Eddf3c",
+        "implementationAddress": "0x28441c7d54A3AE4988B07a43c87b35D2E8441002",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "USD Coin",
         "symbol": "USDC",
         "decimals": 6,
-        "version": "v1.0.0",
-        "deployedAt": "2026-03-16T07:19:12.105Z",
-        "deploymentBlockNumber": 16278917
-      },
-      "WETH": {
-        "proxyAddress": "0x297B06F976f97ca00704f481d2F2Ab9839A438D4",
-        "implementationAddress": "0x1671354C7468986Ba4eBdE80F69ea2F0fCCfc025",
-        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
-        "name": "WETH",
-        "symbol": "WETH",
-        "decimals": 18,
         "version": "1",
-        "deployedAt": "2026-04-03T17:57:36.476Z",
-        "deploymentBlockNumber": 17860964
-      },
-      "STCK": {
-        "proxyAddress": "0xE8D35ba614485fcc3cb573e9641d9E9F672E4494",
-        "implementationAddress": "0x1671354C7468986Ba4eBdE80F69ea2F0fCCfc025",
-        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
-        "name": "Stack Coin",
-        "symbol": "STCK",
-        "decimals": 6,
-        "version": "1",
-        "deployedAt": "2026-04-03T18:05:44.074Z",
-        "deploymentBlockNumber": 17861488
+        "deployedAt": "2026-08-25T10:50:38.879Z",
+        "deploymentBlockNumber": 28777540
       }
     },
     "vaults": {
-      "emberPharosVault": {
-        "proxyAddress": "0xA1EA6DFF36c6b6c6D7df24b8a0bC64A18c29A511",
-        "implementationAddress": "0x590F420F007E3dD8C83bcd0e9944b0DAe148D4A5",
-        "ownerAddress": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-        "name": "Ember Pharos Vault",
-        "receiptTokenSymbol": "pUSDCpy",
-        "collateralToken": "0x40185d3139aF4b9b7d3786ADF643a95446dD6d64",
-        "admin": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-        "operator": "0x0a097FD300A8a9Ba0EA7300E871bB9c9160839eb",
-        "rateManager": "0xFEa83f912CF21d884CDfb66640CfAB6029D940aF",
-        "protocolConfig": "0x43150B26A9CA71c3ab614D2826E3FA64bD826CB8",
-        "maxTVL": "1000000000000000000000000000000",
-        "version": "v1.1.2",
-        "deployedAt": "2026-03-16T07:33:24.865Z",
-        "deploymentBlockNumber": 16279877
-      },
-      "emberPusdtVault": {
-        "proxyAddress": "0xDDbB70183d2D9B6FBd59537441B3B929adA7929A",
-        "implementationAddress": "0x590F420F007E3dD8C83bcd0e9944b0DAe148D4A5",
+      "emberTestCcipVault": {
+        "proxyAddress": "0xE03c31CaAc8c82B78Ae2E8482C09a6CB179F0C25",
+        "implementationAddress": "0x87516d446438C31246634526ed296f99d0C91297",
         "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
-        "name": "Ember pUSDT Vault",
-        "receiptTokenSymbol": "epETHu",
-        "collateralToken": "0x297B06F976f97ca00704f481d2F2Ab9839A438D4",
-        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+        "name": "Ember Test Ccip Vault",
+        "receiptTokenSymbol": "etCCIP",
+        "collateralToken": "0x97669d448f36253982E23d0EffE1D0b218Eddf3c",
+        "admin": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
         "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
         "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
-        "protocolConfig": "0x43150B26A9CA71c3ab614D2826E3FA64bD826CB8",
-        "maxTVL": "2000000000000",
-        "version": "v1.1.2",
-        "deployedAt": "2026-04-03T17:58:26.676Z",
-        "deploymentBlockNumber": 17861024
-      },
-      "emberEthUvault": {
-        "proxyAddress": "0x3e6876672146Be11e93e0Be2B78099A453B48b88",
-        "implementationAddress": "0x590F420F007E3dD8C83bcd0e9944b0DAe148D4A5",
-        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
-        "name": "Ember ETH uVault",
-        "receiptTokenSymbol": "epETHu",
-        "collateralToken": "0x297B06F976f97ca00704f481d2F2Ab9839A438D4",
-        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
-        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
-        "protocolConfig": "0x43150B26A9CA71c3ab614D2826E3FA64bD826CB8",
-        "maxTVL": "2000000000000",
-        "version": "v1.1.2",
-        "deployedAt": "2026-04-03T18:00:54.028Z",
-        "deploymentBlockNumber": 17861177
-      },
-      "emberStackVault": {
-        "proxyAddress": "0xe981f77244C6F903c36b9a3296F6b2916056903A",
-        "implementationAddress": "0x590F420F007E3dD8C83bcd0e9944b0DAe148D4A5",
-        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
-        "name": "Ember Stack Vault",
-        "receiptTokenSymbol": "eSTCK",
-        "collateralToken": "0xE8D35ba614485fcc3cb573e9641d9E9F672E4494",
-        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
-        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
-        "protocolConfig": "0x43150B26A9CA71c3ab614D2826E3FA64bD826CB8",
-        "maxTVL": "2000000000000",
-        "version": "v1.1.2",
-        "deployedAt": "2026-04-03T18:06:14.533Z",
-        "deploymentBlockNumber": 17861517
+        "protocolConfig": "0x8A85f38B1A4C0479e133e27Ecbe64b0b78174EBa",
+        "maxTVL": "10000000000000",
+        "version": "v2.4.0",
+        "deployedAt": "2026-08-25T10:54:39.264Z",
+        "deploymentBlockNumber": 28777733,
+        "bridgeAdapter": "0x78cA3856051AD01780F0106C6124c85E063F199d",
+        "bridgeAdapterUpdatedAt": "2026-08-25T13:14:37.702Z"
+      }
+    },
+    "ccipPoolFactory": {
+      "address": "0x152f5c6f774560294BD439E8d2cDc2A87c5F800A",
+      "deployedAt": "2026-08-25T11:22:18.025Z"
+    },
+    "ccipTokenPools": {
+      "emberTestCcipVaultCcipPool": {
+        "address": "0x78cA3856051AD01780F0106C6124c85E063F199d",
+        "contractName": "EmberTokenPool",
+        "typeAndVersion": "EmberBurnMintTokenPool 1.0.0",
+        "vaultKey": "emberTestCcipVault",
+        "vaultAddress": "0xE03c31CaAc8c82B78Ae2E8482C09a6CB179F0C25",
+        "receiptTokenSymbol": "etCCIP",
+        "decimals": 6,
+        "router": "0x1E202D00714bFBcD7a5b4CF782791C38DA8BdC99",
+        "rmnProxy": "0xB45B9eb94F25683B47e5AFb0f74A05a58be86311",
+        "tokenAdminRegistry": "0xAd1652471967E7FBf524245782A7f4430F6a4243",
+        "registryModule": "0x5370103629Fe91F28708ec4DC1A7A70DC5396EBf",
+        "chainSelector": "16098325658947243212",
+        "advancedPoolHooks": "0x0000000000000000000000000000000000000000",
+        "owner": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "factory": "0x152f5c6f774560294BD439E8d2cDc2A87c5F800A",
+        "salt": "ember.ccip.pool.v1",
+        "deployedAt": "2026-08-25T11:22:18.025Z",
+        "deploymentBlockNumber": 28779189,
+        "lanes": {
+          "16015286601757825753": {
+            "remoteNetwork": "sepolia",
+            "remoteChainSelector": "16015286601757825753",
+            "remotePool": "0xda1a710b7165FBC1d43cC556A25354cC501e3833",
+            "remoteToken": "0x7eBE31DF40e67c1a67A539a7bbc078732347dCA9",
+            "rateLimits": {
+              "enabled": false,
+              "capacity": "0",
+              "rate": "0"
+            },
+            "configuredAt": "2026-08-25T11:28:05.957Z",
+            "txHash": "0x711eb23bf499f8f78231368c9da4743c899d68e6fdaf7ab0965409aef1225b13",
+            "blockNumber": 28779383
+          }
+        },
+        "tokenAdminRegistration": {
+          "administrator": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+          "tokenPool": "0x78cA3856051AD01780F0106C6124c85E063F199d",
+          "registeredAt": "2026-08-25T13:09:11.297Z"
+        }
       }
     }
   }

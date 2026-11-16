@@ -536,7 +536,17 @@ async function main() {
   try {
     // Get collateral token
     const collateralAddress = await vaultAfterUpgrade.asset();
-    const collateral = await ethers.getContractAt("IERC20", collateralAddress);
+    // Inline ABI rather than the "IERC20" artifact name: adding @chainlink/contracts-ccip
+    // brought a second OpenZeppelin copy into the project, so bare OZ artifact names are
+    // now ambiguous. An inline ABI is unambiguous and keeps the contract typed for
+    // .connect(signer).approve(...).
+    const collateral = await ethers.getContractAt(
+      [
+        "function approve(address spender, uint256 amount) returns (bool)",
+        "function balanceOf(address account) view returns (uint256)",
+      ],
+      collateralAddress
+    );
 
     // List of known USDC holders to try (in order of preference)
     const knownWhales = [
@@ -573,7 +583,9 @@ async function main() {
         });
 
         const whaleSigner = await ethers.getSigner(whaleAddress);
-        const collateralAsWhale = collateral.connect(whaleSigner);
+        // ethers v6 types Contract.connect() as BaseContract, which drops the index
+        // signature the inline-ABI contract relies on; cast back so .approve resolves.
+        const collateralAsWhale = collateral.connect(whaleSigner) as typeof collateral;
         const vaultAsWhale = vaultAfterUpgrade.connect(whaleSigner);
 
         // Approve vault

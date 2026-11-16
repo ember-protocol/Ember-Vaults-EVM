@@ -1,0 +1,97 @@
+{
+  "network": "monadTestnet",
+  "chainId": "10143",
+  "contracts": {
+    "timelocks": {
+      "admin": {
+        "address": "0x297B06F976f97ca00704f481d2F2Ab9839A438D4",
+        "minDelay": "60",
+        "proposers": ["0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"],
+        "executors": ["0x0000000000000000000000000000000000000000"],
+        "cancellers": ["0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-09-30T13:10:21.103Z",
+        "deploymentBlockNumber": 66979726
+      },
+      "owner": {
+        "address": "0xDDbB70183d2D9B6FBd59537441B3B929adA7929A",
+        "minDelay": "60",
+        "proposers": ["0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"],
+        "executors": ["0x0000000000000000000000000000000000000000"],
+        "cancellers": ["0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-09-30T13:10:26.566Z",
+        "deploymentBlockNumber": 66979743
+      }
+    },
+    "protocolConfig": {
+      "proxyAddress": "0xE8D35ba614485fcc3cb573e9641d9E9F672E4494",
+      "implementationAddress": "0x3e6876672146Be11e93e0Be2B78099A453B48b88",
+      "ownerAddress": "0xDDbB70183d2D9B6FBd59537441B3B929adA7929A",
+      "version": "v2.2.2",
+      "deployedAt": "2026-09-30T13:10:33.864Z",
+      "deploymentBlockNumber": 66979772,
+      "guardian": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+      "guardianUpdatedAt": "2026-09-30T13:11:06.796Z",
+      "ownerUpdatedAt": "2026-09-30T13:11:24.711Z"
+    },
+    "vaultValidator": {
+      "proxyAddress": "0x2AE7c04e6f6c8fF7Eb9320a80e65D02ed2198731",
+      "implementationAddress": "0xe981f77244C6F903c36b9a3296F6b2916056903A",
+      "protocolConfigAddress": "0xE8D35ba614485fcc3cb573e9641d9E9F672E4494",
+      "ownerAddress": "0xDDbB70183d2D9B6FBd59537441B3B929adA7929A",
+      "version": "v1.1.0",
+      "deployedAt": "2026-09-30T13:10:41.534Z",
+      "deploymentBlockNumber": 66979797,
+      "ownerUpdatedAt": "2026-09-30T13:11:21.008Z"
+    },
+    "depositTokens": {
+      "mtUSDC": {
+        "proxyAddress": "0x9F32C78475A7F86125E4ff7Fa1383e1994602623",
+        "implementationAddress": "0x7f0572ca0D018f79384fD31f6ecB645D164821e4",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Monad Test USDC",
+        "symbol": "mtUSDC",
+        "decimals": 6,
+        "version": "1",
+        "deployedAt": "2026-09-30T13:10:48.667Z",
+        "deploymentBlockNumber": 66979821
+      }
+    },
+    "vaults": {
+      "emberMonadTestUsdc": {
+        "proxyAddress": "0x9627D410bf3Fd66FB92887577Fcb007b97B6DC4B",
+        "implementationAddress": "0x0A552E50Cf2de1a16E899F6BB2025aa15B92Ae6e",
+        "ownerAddress": "0xDDbB70183d2D9B6FBd59537441B3B929adA7929A",
+        "name": "Ember Monad Test USDC",
+        "receiptTokenSymbol": "emtUSDC",
+        "collateralToken": "0x9F32C78475A7F86125E4ff7Fa1383e1994602623",
+        "admin": "0x297B06F976f97ca00704f481d2F2Ab9839A438D4",
+        "operator": "0xc4E3DafED9A7C5f2AcBf76d1ACeEb17514CC637C",
+        "rateManager": "0xFEa83f912CF21d884CDfb66640CfAB6029D940aF",
+        "protocolConfig": "0xE8D35ba614485fcc3cb573e9641d9E9F672E4494",
+        "maxTVL": "1000000000000000000000000000000",
+        "version": "v2.4.0",
+        "deployedAt": "2026-09-30T13:10:56.103Z",
+        "deploymentBlockNumber": 66979844,
+        "validatorAddress": "0x2AE7c04e6f6c8fF7Eb9320a80e65D02ed2198731",
+        "adminUpdatedAt": "2026-09-30T13:11:15.527Z",
+        "ownerUpdatedAt": "2026-09-30T13:11:17.156Z",
+        "parkingLotAddress": "0x3BdCcC6Be6A2DB4a5a77352627109b0689186e9d",
+        "parkingLotUpdatedAt": "2026-09-30T13:15:12.000Z"
+      }
+    },
+    "depositParkingLots": {
+      "emberMonadTestUsdc": {
+        "proxyAddress": "0x3BdCcC6Be6A2DB4a5a77352627109b0689186e9d",
+        "implementationAddress": "0x6B3A7F17684dE8Ec7CD19A086b0F1f9407c6D073",
+        "ownerAddress": "0xDDbB70183d2D9B6FBd59537441B3B929adA7929A",
+        "vault": "0x9627D410bf3Fd66FB92887577Fcb007b97B6DC4B",
+        "operator": "0xc4E3DafED9A7C5f2AcBf76d1ACeEb17514CC637C",
+        "protocolConfig": "0xE8D35ba614485fcc3cb573e9641d9E9F672E4494",
+        "deployedAt": "2026-09-30T13:11:02.660Z",
+        "deploymentBlockNumber": 66979868
+      }
+    }
+  }
+}

@@ -1,4 +1,6 @@
 import { ethers, upgrades } from "hardhat";
+import { getImplementationAddressWithRetry } from "../utils/erc1967";
+import { waitForCode } from "../utils/chain";
 import * as fs from "fs";
 import { AtomicLiquidity__factory } from "../../typechain-types";
 
@@ -138,6 +140,7 @@ async function main() {
   const newImplAddress = await newImpl.getAddress();
   console.log("   ✅ New implementation:", newImplAddress);
 
+  await waitForCode(newImplAddress);
   const newImplVersion = await newImpl.version();
   console.log("   New Implementation Version:", newImplVersion);
 
@@ -153,7 +156,7 @@ async function main() {
     console.log("-".repeat(70));
 
     try {
-      const currentImpl = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+      const currentImpl = await getImplementationAddressWithRetry(proxyAddress);
       console.log("   Current Implementation:", currentImpl);
 
       const vault = await ethers.getContractAt("AtomicLiquidity", proxyAddress);
@@ -173,7 +176,7 @@ async function main() {
       console.log("   ✅ Confirmed in block:", receipt?.blockNumber);
       console.log("   Gas used:", receipt?.gasUsed.toString());
 
-      const implAfter = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+      const implAfter = await getImplementationAddressWithRetry(proxyAddress);
       const newVersion = await vault.version();
 
       console.log("\n   📊 Post-Upgrade Verification:");

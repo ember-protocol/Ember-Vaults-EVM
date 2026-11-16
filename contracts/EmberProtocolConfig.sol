@@ -14,9 +14,24 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/IAtomicLiquidity.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
 import "./interfaces/IEmberVault.sol";
 import "./interfaces/IEmberVaultValidator.sol";
+
+/// @notice What the max-TVL guard reads to value a vault the way its deposit cap does.
+///         Only vaults with the bridged-shares counter implement `netBridgedOutShares`.
+interface IEmberVaultCapMeasure {
+  function netBridgedOutShares() external view returns (int256);
+  function totalSupply() external view returns (uint256);
+  function convertToAssets(uint256 shares) external view returns (uint256);
+  function setNetBridgedOutShares(address caller, int256 expected, int256 newValue) external;
+}
+
+/// @notice Implemented only by vaults that check the withdrawal allow-list on redemption.
+interface IEmberVaultWithdrawGate {
+  function enforcesWithdrawAllowList() external view returns (bool);
+}
 
 /// @title Ember Protocol Configuration
 /// @notice Stores configuration parameters that govern the vault system and manages vault admin operations
@@ -246,10 +261,40 @@ contract EmberProtocolConfig is
     if (newMaxTVL == 0) revert InvalidValue();
     if (newMaxTVL == IEmberVault(vault).maxTVL()) revert SameValue();
 
-    uint256 currentTVL = IEmberVault(vault).totalAssets();
-    if (currentTVL > newMaxTVL) revert InvalidValue();
+    if (_capTVL(vault) > newMaxTVL) revert InvalidValue();
 
     IEmberVault(vault).setMaxTVL(msg.sender, newMaxTVL);
+  }
+
+  /// @notice Reconciles a vault's net-bridged-out share counter
+  /// @dev Forwards to the vault, which verifies the caller is admin. Intended for exactly one
+  ///      case `bridgeBurn`/`bridgeMint` cannot express: writing off a burn whose inbound mint
+  ///      can never execute. Not for seeding a vault that had already bridged before the counter
+  ///      existed (0 is correct there), and not for moving cap room between chains. See
+  ///      `EmberVault.setNetBridgedOutShares` for why both of those break the cross-chain
+  ///      identity that bounds global TVL. Reverts for a vault that predates the counter.
+  /// @param vault The vault address
+  /// @param expected The counter value the caller observed when deciding `newValue`
+  /// @param newValue The reconciled counter value
+  function updateVaultNetBridgedOutShares(
+    address vault,
+    int256 expected,
+    int256 newValue
+  ) external nonReentrant {
+    IEmberVaultCapMeasure(vault).setNetBridgedOutShares(msg.sender, expected, newValue);
+  }
+
+  /// @dev The TVL the vault's deposit cap is enforced against: local supply plus net shares
+  ///      bridged out. Validating against `totalAssets()` alone would let a cap be set below what
+  ///      the vault actually counts once shares have been bridged out. Vaults without the counter
+  ///      (EmberETHVault, AtomicLiquidity, EmberVaults not yet upgraded) keep the old measure.
+  function _capTVL(address vault) internal view returns (uint256) {
+    try IEmberVaultCapMeasure(vault).netBridgedOutShares() returns (int256 net) {
+      int256 shares = SafeCast.toInt256(IEmberVaultCapMeasure(vault).totalSupply()) + net;
+      return shares > 0 ? IEmberVaultCapMeasure(vault).convertToAssets(uint256(shares)) : 0;
+    } catch {
+      return IEmberVault(vault).totalAssets();
+    }
   }
 
   /// @notice Changes the vault rate update interval
@@ -486,6 +531,34 @@ contract EmberProtocolConfig is
     validator.setDepositAllowListStatus(msg.sender, vault, user, status);
   }
 
+  /// @notice Adds or removes an address on a vault's withdrawal allow-list (operator only)
+  /// @dev Same shape and checks as setVaultDepositAllowList. An empty list leaves withdrawals open.
+  function setVaultWithdrawAllowList(
+    address vault,
+    address user,
+    bool status
+  ) external nonReentrant {
+    if (user == address(0)) revert ZeroAddress();
+    // The validator is shared across vault types, but only some check the list on redemption.
+    // Anywhere else a list would update the count and emit events while withdrawals stayed open.
+    try IEmberVaultWithdrawGate(vault).enforcesWithdrawAllowList() returns (bool enforced) {
+      if (!enforced) revert InvalidValue();
+    } catch {
+      revert InvalidValue();
+    }
+    IEmberVaultValidator validator = IEmberVault(vault).vaultValidator();
+    if (validator.withdrawAllowList(vault, user) == status) revert SameValue();
+
+    if (status) {
+      IEmberVault.Roles memory vaultRoles = IEmberVault(vault).roles();
+      if (user == vaultRoles.admin || user == vaultRoles.operator || user == vaultRoles.rateManager)
+        revert InvalidValue();
+      if (blacklistedAccounts[user]) revert Blacklisted();
+    }
+
+    validator.setWithdrawAllowListStatus(msg.sender, vault, user, status);
+  }
+
   function setVaultFeeExemptionList(
     address vault,
     address user,
@@ -668,7 +741,7 @@ contract EmberProtocolConfig is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.2.2";
+    return "v2.5.0";
   }
 
   /// @notice Verifies that the protocol is not paused

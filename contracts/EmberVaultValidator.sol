@@ -38,8 +38,20 @@ contract EmberVaultValidator is
   /// @notice Protocol config contract for authorization
   IEmberProtocolConfig public protocolConfig;
 
+  // Appended after every pre-existing variable (gap 43 -> 41), so the prior layout is unchanged.
+  mapping(address => mapping(address => bool)) private _withdrawAllowList;
+  mapping(address => uint256) private _withdrawAllowListCount;
+
   // Events
   event VaultDepositAllowListUpdated(
+    address indexed vault,
+    address indexed account,
+    bool status,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  event VaultWithdrawAllowListUpdated(
     address indexed vault,
     address indexed account,
     bool status,
@@ -120,6 +132,14 @@ contract EmberVaultValidator is
     return _depositAllowListCount[vault];
   }
 
+  function withdrawAllowList(address vault, address account) external view returns (bool) {
+    return _withdrawAllowList[vault][account];
+  }
+
+  function withdrawAllowListCount(address vault) external view returns (uint256) {
+    return _withdrawAllowListCount[vault];
+  }
+
   // ============================================
   // Vault-Called Functions
   // ============================================
@@ -129,6 +149,16 @@ contract EmberVaultValidator is
   function validateDeposit(address vault, address depositor) external view {
     if (_depositAllowListCount[vault] > 0 && !_depositAllowList[vault][depositor])
       revert DepositNotAllowed();
+  }
+
+  /// @notice Validates whether an account is allowed to withdraw
+  /// @dev Called by the vault from redeemShares for both the share owner and the receiver, so
+  ///      shares moved to an unlisted address can't be redeemed and a listed holder can't pay out
+  ///      to an unlisted one. An empty list leaves withdrawals open, matching the deposit list,
+  ///      so a vault is unaffected until its list is populated.
+  function validateWithdraw(address vault, address account) external view {
+    if (_withdrawAllowListCount[vault] > 0 && !_withdrawAllowList[vault][account])
+      revert WithdrawNotAllowed();
   }
 
   /// @notice Records the last deposit timestamp against the depositor (msg.sender
@@ -274,6 +304,33 @@ contract EmberVaultValidator is
     );
   }
 
+  function setWithdrawAllowListStatus(
+    address caller,
+    address vault,
+    address user,
+    bool status
+  ) external nonReentrant onlyProtocolConfig {
+    if (caller != IEmberVault(vault).roles().operator) revert Unauthorized();
+    _withdrawAllowList[vault][user] = status;
+    // ProtocolConfig reverts SameValue before calling, so every call is a real transition.
+    if (status) {
+      unchecked {
+        _withdrawAllowListCount[vault]++;
+      }
+    } else {
+      unchecked {
+        _withdrawAllowListCount[vault]--;
+      }
+    }
+    emit VaultWithdrawAllowListUpdated(
+      vault,
+      user,
+      status,
+      block.timestamp * 1000,
+      IEmberVault(vault).sequenceNumber()
+    );
+  }
+
   function setFeeExemptionListStatus(
     address caller,
     address vault,
@@ -343,10 +400,10 @@ contract EmberVaultValidator is
   }
 
   function version() external pure returns (string memory) {
-    return "v1.1.0";
+    return "v1.2.0";
   }
 
   function _authorizeUpgrade(address) internal override onlyOwner {}
 
-  uint256[43] private __gap;
+  uint256[41] private __gap;
 }

@@ -1,0 +1,68 @@
+{
+  "network": "monad",
+  "chainId": "143",
+  "contracts": {
+    "protocolConfig": {
+      "proxyAddress": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+      "implementationAddress": "0x2E754F62309aC0da2BAB0172A86bEE2C17EB8aD9",
+      "ownerAddress": "0x373152feEF81cC59502DA2c8dE877b3D5Ae2E342",
+      "version": "v2.5.0",
+      "deployedAt": "2026-10-01T19:00:17.156Z",
+      "deploymentBlockNumber": 109685857,
+      "ownerUpdatedAt": "2026-10-13T17:27:37.869Z"
+    },
+    "vaults": {
+      "emberZodiacTreasuryPlus": {
+        "proxyAddress": "0x9d753059f0aBDD90B197F3BE9d3cbC49bC01d31a",
+        "implementationAddress": "0xa7bE89F2c31529eF265331Be317B41ff96E5016E",
+        "ownerAddress": "0x373152feEF81cC59502DA2c8dE877b3D5Ae2E342",
+        "name": "Ember Zodiac Treasury Plus",
+        "receiptTokenSymbol": "eTPLUS",
+        "collateralToken": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+        "admin": "0x18e2e2De82dE517A14D48D6da8Ed3Fc5FFC06227",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+        "maxTVL": "25000000000000",
+        "version": "v2.7.0",
+        "deployedAt": "2026-10-01T19:01:09.001Z",
+        "deploymentBlockNumber": 109686027,
+        "validatorAddress": "0x4b1d072F3bD6F35696A5D7D87A9b968b035d5196",
+        "adminUpdatedAt": "2026-10-13T16:51:27.974Z",
+        "ownerUpdatedAt": "2026-10-13T16:54:15.883Z"
+      }
+    },
+    "vaultValidator": {
+      "proxyAddress": "0x4b1d072F3bD6F35696A5D7D87A9b968b035d5196",
+      "implementationAddress": "0xF531bd4fB1379b3c44f2C38Db194E8719b6f36fc",
+      "protocolConfigAddress": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+      "ownerAddress": "0x373152feEF81cC59502DA2c8dE877b3D5Ae2E342",
+      "version": "v1.2.0",
+      "deployedAt": "2026-10-01T19:01:51.453Z",
+      "deploymentBlockNumber": 109686169,
+      "ownerUpdatedAt": "2026-10-13T17:29:27.843Z"
+    },
+    "timelocks": {
+      "owner": {
+        "address": "0x373152feEF81cC59502DA2c8dE877b3D5Ae2E342",
+        "minDelay": "86400",
+        "proposers": ["0x203d4ceC733Dcda6eD87bd3b7aB6cb37149201C2"],
+        "executors": ["0xA2160f1dee338b921D13c9d02a7E2caDB02aF38f"],
+        "cancellers": ["0x71aA7564fAE10A393F2Bf0efA9E6350d872f07f7"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-10-01T19:08:18.086Z",
+        "deploymentBlockNumber": 109687422
+      },
+      "admin": {
+        "address": "0x18e2e2De82dE517A14D48D6da8Ed3Fc5FFC06227",
+        "minDelay": "43200",
+        "proposers": ["0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6"],
+        "executors": ["0xA2160f1dee338b921D13c9d02a7E2caDB02aF38f"],
+        "cancellers": ["0x71aA7564fAE10A393F2Bf0efA9E6350d872f07f7"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-10-01T19:10:25.131Z",
+        "deploymentBlockNumber": 109687849
+      }
+    }
+  }
+}

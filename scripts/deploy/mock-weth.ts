@@ -1,4 +1,5 @@
 import { ethers } from "hardhat";
+import { waitForCode } from "../utils/chain";
 import * as fs from "fs";
 
 /**
@@ -43,6 +44,7 @@ async function main() {
   }
 
   // Get contract instance with ERC20 interface for type safety
+  await waitForCode(wethAddress);
   const mockWETH = await ethers.getContractAt("MockWETH", wethAddress);
 
   // Get token details

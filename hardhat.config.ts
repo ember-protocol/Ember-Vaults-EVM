@@ -10,14 +10,49 @@ dotenv.config();
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.22",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 100,
+    // 0.8.22 is the only compiler our own contracts ever use. Do not add another entry
+    // here: hardhat picks the HIGHEST configured version a file's pragma allows, so a
+    // second compiler would silently move every ^0.8.22 contract onto it and change
+    // already-deployed implementation bytecode. CCIP's sources need ^0.8.24, and they get
+    // there through `overrides` below, which is per-file and cannot leak.
+    compilers: [
+      {
+        version: "0.8.22",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 100,
+          },
+          viaIR: true,
+        },
       },
-      viaIR: true,
-    },
+    ],
+    // The CCIP token pool, its factory, and the exact two @chainlink/contracts-ccip files
+    // in their dependency closure that declare ^0.8.24. Every other file in that closure
+    // (OpenZeppelin, the rest of CCIP) is ^0.8.20-or-lower and compiles fine on 0.8.22.
+    //
+    // evmVersion is pinned to paris — matching foundry.toml and Chainlink's own pool repo —
+    // because 0.8.26 otherwise defaults to cancun and would emit MCOPY/TSTORE. Our vaults
+    // already run PUSH0 bytecode on Pharos so shanghai is proven there, but cancun opcodes
+    // are a separate question and paris costs nothing on a contract this small.
+    overrides: Object.fromEntries(
+      [
+        "contracts/ccip/EmberTokenPool.sol",
+        "contracts/ccip/EmberTokenPoolFactory.sol",
+        "@chainlink/contracts-ccip/contracts/pools/TokenPool.sol",
+        "@chainlink/contracts-ccip/contracts/interfaces/IAdvancedPoolHooks.sol",
+      ].map((sourceName) => [
+        sourceName,
+        {
+          version: "0.8.26",
+          settings: {
+            optimizer: { enabled: true, runs: 100 },
+            viaIR: true,
+            evmVersion: "paris",
+          },
+        },
+      ])
+    ),
   },
   // ───────────────────────────────────────────────────────────────────────
   // Verification providers — hardhat-verify v2 has TWO independent providers
@@ -28,7 +63,7 @@ const config: HardhatUserConfig = {
   // `?chainid=<X>` as a query param. Pharos (1672) isn't on Etherscan's
   // chainlist so that request fails with "Missing or unsupported chainid".
   //
-  // We split: Etherscan covers ethereum/base/sepolia (single v2 key);
+  // We split: Etherscan covers ethereum/base/monad/arbitrum/sepolia (single v2 key);
   // Blockscout covers Pharos/Atlantic via SocialScan's command_api endpoint.
   // The verify-contracts.ts script dispatches `verify:etherscan` vs
   // `verify:blockscout` based on the active network.
@@ -50,6 +85,30 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://api.basescan.org/api",
           browserURL: "https://basescan.org",
+        },
+      },
+      {
+        network: "monad",
+        chainId: 143,
+        urls: {
+          apiURL: "https://api.monadscan.com/api",
+          browserURL: "https://monadscan.com",
+        },
+      },
+      {
+        network: "monadTestnet",
+        chainId: 10143,
+        urls: {
+          apiURL: "https://api-testnet.monadscan.com/api",
+          browserURL: "https://testnet.monadscan.com",
+        },
+      },
+      {
+        network: "arbitrum",
+        chainId: 42161,
+        urls: {
+          apiURL: "https://api.arbiscan.io/api",
+          browserURL: "https://arbiscan.io",
         },
       },
     ],
@@ -140,6 +199,31 @@ const config: HardhatUserConfig = {
       url: process.env.BASE_MAINNET_RPC_URL || "",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 8453,
+    },
+    mantle_sepolia: {
+      url: process.env.MANTLE_TESTNET_RPC_URL || "",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 5003,
+      // Mantle under-reports eth_estimateGas: a call needing ~33.6k came back low enough that
+      // the transaction was mined with only intrinsic gas and reverted with no revert data
+      // (status 0, gasUsed == gasLimit, `reason: null`). Pad every estimate on this chain.
+      gasMultiplier: 3,
+    },
+    // Public mainnet RPC caps eth_getLogs at 100 blocks; use a private endpoint.
+    monad: {
+      url: process.env.MONAD_RPC_URL || "",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 143,
+    },
+    monadTestnet: {
+      url: process.env.MONAD_TESTNET_RPC_URL || "",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 10143,
+    },
+    arbitrum: {
+      url: process.env.ARBITRUM_RPC_URL || "",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 42161,
     },
   },
   paths: {

@@ -15,6 +15,13 @@ import "./WithdrawalQueueLib.sol";
 import "../interfaces/IEmberProtocolConfig.sol";
 import "../interfaces/IEmberVaultValidator.sol";
 
+/// @notice Reads the validator a source EmberVault stores, so a swap can consult that vault's
+///         own withdrawal allow-list. Declared separately from IEmberVaultValidator because the
+///         call is made against the SOURCE VAULT, not against a validator.
+interface IEmberVaultValidatorSource {
+  function vaultValidator() external view returns (address);
+}
+
 interface IEmberVaultRedeemable {
   function redeemShares(uint256 shares, address receiver) external;
 }
@@ -355,6 +362,50 @@ library AtomicLiquidityLib {
   // ============ Calldata bundles ============
   // Bundling args into a calldata struct keeps function signatures readable.
 
+  /// @dev Whether `account` may take collateral out of `vault` under that vault's withdrawal
+  ///      allow-list. Open while the list is empty, matching the deposit list.
+  ///
+  ///      A raw staticcall, and a revert carrying no data reads as allowed, so a validator
+  ///      deployed before the withdrawal list existed — which has nothing listed on it and
+  ///      cannot gate anything — does not brick withdrawals on a vault upgraded ahead of it.
+  ///      A real rejection always carries `WithdrawNotAllowed`. Mirrors
+  ///      EmberVault._withdrawAllowed.
+  function withdrawAllowed(
+    address vault,
+    address validator,
+    address account
+  ) internal view returns (bool) {
+    if (validator == address(0)) return true;
+    // Codeless validator: see EmberVault._withdrawAllowed. A staticcall to an address with no
+    // code succeeds returning nothing, so treating that as allowed would let a misconfigured
+    // `vaultValidator` silently disable the list.
+    if (validator.code.length == 0) return false;
+    (bool ok, bytes memory err) = validator.staticcall(
+      abi.encodeWithSelector(IEmberVaultValidator.validateWithdraw.selector, vault, account)
+    );
+    return ok || err.length == 0;
+  }
+
+  /// @dev Same question asked of a SOURCE vault whose shares are being swapped, reading that
+  ///      vault's own validator rather than AL's.
+  ///
+  ///      This is the check that keeps the swap from being a way around the source vault's
+  ///      withdrawal allow-list. AL redeems the shares as itself — `redeemShares(amount,
+  ///      address(this))` — so the source vault only ever sees AL as owner and receiver, and
+  ///      the account that actually exited is invisible to it. Without this, anyone barred
+  ///      from redeeming a vault directly could still convert its shares to collateral through
+  ///      any whitelisted atomic vault.
+  ///
+  ///      A source that predates validators entirely answers nothing to `vaultValidator()`;
+  ///      treat that as unrestricted rather than reverting the swap.
+  function sourceWithdrawAllowed(address share, address account) internal view returns (bool) {
+    (bool okValidator, bytes memory data) = share.staticcall(
+      abi.encodeWithSelector(IEmberVaultValidatorSource.vaultValidator.selector)
+    );
+    if (!okValidator || data.length < 32) return true;
+    return withdrawAllowed(share, abi.decode(data, (address)), account);
+  }
+
   struct SwapArgs {
     address share;
     uint256 shareAmount;
@@ -381,6 +432,9 @@ library AtomicLiquidityLib {
     ///      is below this, guarding against a utilization-driven fee-multiplier spike between
     ///      preview and execution. Pass 0 to disable.
     uint256 minNetOut;
+    /// @dev AL's own validator, for AL's withdrawal allow-list. Separate from the source
+    ///      vault's, which the swap reads from the source itself.
+    address vaultValidator;
   }
 
   struct ReleaseArgs {
@@ -391,6 +445,8 @@ library AtomicLiquidityLib {
     address strategy;
     /// @dev Protocol-config address, read for the per-recipient blacklist check.
     address protocolConfig;
+    /// @dev AL's validator, read for the per-recipient withdrawal allow-list check.
+    address vaultValidator;
     uint256 sequenceNumber;
     uint256 timestamp;
   }
@@ -469,6 +525,23 @@ library AtomicLiquidityLib {
     // (they don't affect AL's ability to settle the swap downstream).
     (, bool sourceWithdrawalsPaused, ) = IEmberVaultPauseStatus(a.share).pauseStatus();
     if (sourceWithdrawalsPaused) revert OperationPaused();
+
+    // A swap takes collateral out of AL and exits the source vault's shares in one step, so
+    // both vaults' withdrawal allow-lists apply. Owner and receiver are checked against each,
+    // so shares moved to an unlisted address cannot be swapped out and a listed holder cannot
+    // pay out to an unlisted one — the same pairing EmberVault applies on redemption.
+    // AL settles by redeeming the collected shares as itself, so it must be able to exit the
+    // source too. Without this the swap keeps accepting shares — the swapper passes the source's
+    // list — and pays real collateral for shares `redeemCollectedEmberShares` can no longer
+    // redeem, converting AL's collateral into a stranded holding one swap at a time. Fail closed
+    // instead: swaps against that source stop until AL is listed on it.
+    if (
+      !sourceWithdrawAllowed(a.share, address(this)) ||
+      !sourceWithdrawAllowed(a.share, a.shareOwner) ||
+      !sourceWithdrawAllowed(a.share, a.receiver) ||
+      !withdrawAllowed(address(this), a.vaultValidator, a.shareOwner) ||
+      !withdrawAllowed(address(this), a.vaultValidator, a.receiver)
+    ) revert WithdrawNotAllowed();
 
     uint256 grossAmount = IERC4626(a.share).convertToAssets(a.shareAmount);
     if (grossAmount == 0) revert ZeroAmount();
@@ -588,13 +661,26 @@ library AtomicLiquidityLib {
 
     IEmberConfigBlacklist cfg = IEmberConfigBlacklist(a.protocolConfig);
 
-    // First pass: compute payouts. A recipient that is protocol-blacklisted is SKIPPED — its
-    // payout stays 0 and no transfer is attempted. Skipping is what lets the head advance past
-    // an entry whose recipient can no longer receive the collateral token (e.g. a token-level
-    // blacklist); without it a single stuck recipient at the head would freeze every later
-    // release for this share. A blacklisted recipient forfeits its holdback: the collateral
-    // simply remains in the vault for the benefit of remaining holders.
+    // First pass: compute payouts. The two gates differ in STRENGTH and so in consequence.
+    //
+    // Protocol-blacklisted -> SKIPPED, and the holdback is FORFEIT: payout stays 0, no transfer
+    // is attempted, and the collateral simply remains in the vault for the benefit of remaining
+    // holders. Skipping is also what lets the head advance past a recipient that can no longer
+    // receive the collateral token at all; without it one stuck entry at the head would freeze
+    // every later release for this share.
+    //
+    // Not on the withdrawal allow-list -> payout is computed as normal and ESCROWED into
+    // `unclaimedHoldback` in the second pass, claimable once the recipient is listed. The
+    // allow-list belongs on this path for the same reason it belongs on redeem and instant
+    // withdraw — a holdback release is collateral leaving the vault to a user, just deferred —
+    // but it is a softer control than the blacklist and must not destroy the entitlement.
+    // An empty list means unrestricted, so the first address ever added makes the list live and
+    // bars everyone else at once; forfeiting there would wipe every pending holdback in a single
+    // release pass. The claim paths carry the same check, so escrowing defers the payout rather
+    // than letting it out the side door.
     uint256 entriesSkipped;
+    // Marks entries whose payout must be escrowed rather than transferred in the second pass.
+    bool[] memory escrowOnly = new bool[](entriesProcessed);
     // Cache the auto-lift ceiling once for this call — derived from the collateral
     // token's decimals so it stays right-sized regardless of whether AL is deployed
     // against USDC (6d), WETH (18d), WBTC (8d), etc. See `holdbackDustUnits`.
@@ -613,7 +699,11 @@ library AtomicLiquidityLib {
       if (recipient == address(0)) revert ZeroAddress();
       if (cfg.isAccountBlacklisted(recipient)) {
         entriesSkipped++;
-        continue; // payouts[i - startIndex] stays 0
+        continue; // payouts[i - startIndex] stays 0 — forfeited
+      }
+      if (!withdrawAllowed(address(this), a.vaultValidator, recipient)) {
+        // Pay it out of the strategy as usual, but route it to escrow below.
+        escrowOnly[i - startIndex] = true;
       }
       uint256 entryAmount = queue[i].amount;
       uint256 payout = FixedPointMath.mul(entryAmount, a.unwindingPercentage);
@@ -659,9 +749,12 @@ library AtomicLiquidityLib {
       HoldbackEntry storage entry = queue[i];
       uint256 payout = payouts[i - startIndex];
       entry.released = payout;
-      if (payout > 0 && !_tryTransfer(token, entry.recipient, payout)) {
-        // Recipient is currently unpayable (e.g. a blocklisted collateral address or a
-        // reverting token hook). Escrow the payout as a claimable balance rather than
+      if (
+        payout > 0 && (escrowOnly[i - startIndex] || !_tryTransfer(token, entry.recipient, payout))
+      ) {
+        // Recipient is either not on the withdrawal allow-list, or currently unpayable (e.g.
+        // a blocklisted collateral address or a reverting token hook). Either way the
+        // entitlement survives: escrow the payout as a claimable balance rather than
         // letting the transfer revert — otherwise a single bad recipient at the head
         // would wedge the entire FIFO tail behind it, freezing funds owed to every
         // other user. The collateral is already in this contract from _ensureLiquidity
@@ -819,10 +912,15 @@ library AtomicLiquidityLib {
 
     uint256 indexToUse = cancelled ? cancelIndex : type(uint256).max;
 
+    // The allow-list is re-checked here for the same reason the blacklist is: an address can
+    // be removed after its request was queued. Skipping returns the shares rather than
+    // reverting, so one delisted account cannot wedge the FIFO queue behind it.
     bool shouldSkip = configProxy.isAccountBlacklisted(a.owner) ||
       configProxy.isAccountBlacklisted(a.receiver) ||
       cancelled ||
-      withdrawAmount == 0;
+      withdrawAmount == 0 ||
+      !withdrawAllowed(address(this), a.vaultValidator, a.owner) ||
+      !withdrawAllowed(address(this), a.vaultValidator, a.receiver);
 
     uint256 permanentFeeCharged = 0;
     uint256 timeBasedFeeCharged = 0;
@@ -1340,5 +1438,122 @@ library AtomicLiquidityLib {
     // silently short. Catch that here so the calling flow fails cleanly without
     // burning user shares.
     if (token.balanceOf(address(this)) < needed) revert StrategyShortDelivery();
+  }
+
+  /// @notice Mirrors AtomicLiquidity's initializer arguments. Declared here so the vault can
+  ///         hand the struct straight through to `initializeVault` without re-packing it. The
+  ///         ABI encoding is a plain tuple, so the on-chain `initialize` signature is unchanged
+  ///         from when this lived in the vault.
+  struct VaultInitParams {
+    string name;
+    address collateralToken;
+    address admin;
+    address operator;
+    address rateManager;
+    uint256 maxRateChangePerUpdate;
+    uint256 feePercentage;
+    uint256 minWithdrawableShares;
+    uint256 rateUpdateInterval;
+    uint256 maxTVL;
+  }
+
+  /// @dev Same signature, and therefore the same topic0, as the declaration still carried by
+  ///      AtomicLiquidity: the delegatecall attributes the log to the proxy, so indexers see an
+  ///      identical event on an identical address. The vault keeps its copy of the declaration
+  ///      so its ABI is unchanged.
+  event VaultCreated(
+    address indexed vault,
+    string name,
+    address collateralToken,
+    address admin,
+    address operator,
+    address rateProvider,
+    address[] subAccounts,
+    uint256 minWithdrawableShares,
+    uint256 feePercentage,
+    uint256 maxRateChangePerUpdate,
+    uint256 rateUpdateInterval,
+    uint256 rate,
+    uint256 maxTVL,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  /// @notice Validates every initializer argument, records the sub-account set and emits
+  ///         VaultCreated, returning the protocol's default rate for the vault to store.
+  /// @dev Runs before the vault's own initializer body. The OpenZeppelin init chain and the
+  ///      typed storage writes stay in the vault — the first are inherited internals and the
+  ///      second need the vault's own struct types — but everything here is one-shot code that
+  ///      would otherwise sit in runtime bytecode for the life of the contract.
+  ///      A revert anywhere in the rest of `initialize` discards this log along with the
+  ///      sub-account writes, so emitting early is not observable.
+  function initializeVault(
+    address protocolConfigAddress,
+    VaultInitParams memory params,
+    address[] memory subAccountList,
+    uint256 currentTime,
+    mapping(address => bool) storage subAccounts
+  ) external returns (uint256 defaultRate) {
+    if (protocolConfigAddress == address(0)) revert ZeroAddress();
+    if (params.admin == address(0)) revert ZeroAddress();
+    if (params.operator == address(0)) revert ZeroAddress();
+    if (params.rateManager == address(0)) revert ZeroAddress();
+    if (
+      params.admin == params.operator ||
+      params.admin == params.rateManager ||
+      params.operator == params.rateManager
+    ) revert InvalidValue();
+
+    if (params.collateralToken == address(0)) revert ZeroAddress();
+
+    IEmberProtocolConfig configProxy = IEmberProtocolConfig(protocolConfigAddress);
+
+    if (
+      params.rateUpdateInterval < configProxy.getMinRateInterval() ||
+      params.rateUpdateInterval > configProxy.getMaxRateInterval()
+    ) revert InvalidInterval();
+
+    if (params.maxRateChangePerUpdate == 0) revert InvalidRate();
+
+    if (params.feePercentage > configProxy.getMaxAllowedFeePercentage()) revert InvalidValue();
+
+    if (bytes(params.name).length == 0) revert InvalidValue();
+    if (params.minWithdrawableShares == 0) revert ZeroAmount();
+    if (params.maxTVL == 0) revert ZeroAmount();
+
+    if (configProxy.isAccountBlacklisted(params.admin)) revert Blacklisted();
+    if (configProxy.isAccountBlacklisted(params.operator)) revert Blacklisted();
+    if (configProxy.isAccountBlacklisted(params.rateManager)) revert Blacklisted();
+
+    for (uint256 i = 0; i < subAccountList.length; i++) {
+      address subAccount = subAccountList[i];
+      if (subAccount == address(0)) revert ZeroAddress();
+      if (
+        subAccount == params.admin ||
+        subAccount == params.operator ||
+        subAccount == params.rateManager
+      ) revert InvalidValue();
+      subAccounts[subAccount] = true;
+    }
+
+    defaultRate = configProxy.getDefaultRate();
+
+    emit VaultCreated(
+      address(this),
+      params.name,
+      params.collateralToken,
+      params.admin,
+      params.operator,
+      params.rateManager,
+      subAccountList,
+      params.minWithdrawableShares,
+      params.feePercentage,
+      params.maxRateChangePerUpdate,
+      params.rateUpdateInterval,
+      defaultRate,
+      params.maxTVL,
+      currentTime,
+      0
+    );
   }
 }

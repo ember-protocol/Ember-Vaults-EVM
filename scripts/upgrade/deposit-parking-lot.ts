@@ -1,5 +1,6 @@
 import { ethers, upgrades } from "hardhat";
 import { getImplementationAddressWithRetry } from "../utils/erc1967";
+import { waitForCode } from "../utils/chain";
 import * as fs from "fs";
 
 /**
@@ -42,6 +43,8 @@ type ParkingLotState = {
   operator: string;
   collateralToken: string;
   depositsPaused: boolean;
+  /** null when the deployed implementation predates `cancellationsPaused()` — see readState. */
+  cancellationsPaused: boolean | null;
   totalPendingAssets: bigint;
   livePendingDeposits: bigint;
   /** null when the deployed implementation predates `version()` — see readState. */
@@ -50,6 +53,9 @@ type ParkingLotState = {
 
 /** How a missing `version()` is rendered in the console. */
 const VERSION_UNAVAILABLE = "n/a (deployed implementation predates version())";
+
+/** How a missing `cancellationsPaused()` is rendered in the console. */
+const CANCEL_FLAG_UNAVAILABLE = "n/a (deployed implementation predates the flag)";
 
 /** Best-effort collateral formatting — never let a metadata read block an upgrade. */
 async function formatCollateral(token: string, amount: bigint): Promise<string> {
@@ -94,12 +100,24 @@ async function readState(proxyAddress: string): Promise<ParkingLotState> {
     version = null;
   }
 
+  // Same story as `version()`: `cancellationsPaused()` ships in v1.2.0, so the selector doesn't
+  // exist on any lot deployed before it and the staticcall reverts. Report unknown rather than
+  // failing the pre-flight — this getter must NOT go in the Promise.all above, which is reserved
+  // for getters present since the first deploy.
+  let cancellationsPaused: boolean | null = null;
+  try {
+    cancellationsPaused = await parkingLot.cancellationsPaused();
+  } catch {
+    cancellationsPaused = null;
+  }
+
   return {
     owner,
     vault,
     operator,
     collateralToken,
     depositsPaused,
+    cancellationsPaused,
     totalPendingAssets,
     livePendingDeposits,
     version,
@@ -241,6 +259,7 @@ async function main() {
     console.log("  Operator:              ", state.operator);
     console.log("  Collateral Token:      ", state.collateralToken);
     console.log("  Deposits Paused:       ", state.depositsPaused);
+    console.log("  Cancellations Paused:  ", state.cancellationsPaused ?? CANCEL_FLAG_UNAVAILABLE);
     console.log("  Live Pending Deposits: ", state.livePendingDeposits.toString());
     console.log(
       "  Escrowed Collateral:   ",
@@ -264,7 +283,7 @@ async function main() {
     console.error(
       `     CONTRACT_NAME=${CONTRACT_NAME} PROXY_ADDRESS=<proxy> yarn admin:gen-timelock-upgrade --network ${network.name}`
     );
-    // process.exit(1);
+    process.exit(1);
   }
 
   // Safety delay before sending an upgrade transaction.
@@ -293,7 +312,13 @@ async function main() {
     console.log(
       "ℹ️  upgrade alters deposit validation, fees or the refund path, drain the queue first"
     );
-    console.log("ℹ️  (setDepositsPaused + processDeposits) so they settle as accepted.");
+    console.log(
+      "ℹ️  (setDepositsPaused + processDeposits) so they settle as accepted. If Cancellations"
+    );
+    console.log(
+      "ℹ️  Paused is true, these depositors currently have no exit — clear it too unless the"
+    );
+    console.log("ℹ️  upgrade is meant to land mid-commitment.");
   }
 
   console.log("\nContinuing in 5 seconds... (Press Ctrl+C to cancel)");
@@ -336,6 +361,7 @@ async function main() {
 
   console.log("   ✅ New Implementation deployed at:", newImplementationAddress);
 
+  await waitForCode(newImplementationAddress);
   const newImplVersion = await newImplementation.version();
   console.log("   New Implementation Version:", newImplVersion);
 

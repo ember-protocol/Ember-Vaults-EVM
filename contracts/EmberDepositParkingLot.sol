@@ -30,6 +30,9 @@ interface IAsyncVaultDeposit {
     external
     view
     returns (bool deposits, bool withdrawals, bool privilegedOperations);
+
+  /// @notice The lot the vault routes deposits through; must be this contract for it to settle.
+  function parkingLot() external view returns (address);
 }
 
 // Custom errors (ZeroAddress / Unauthorized / Blacklisted / SameValue are declared in
@@ -47,6 +50,9 @@ error InvalidReceiver();
 ///         FoT would cause the vault to over-mint shares against the actual received amount.
 ///         Fail fast at park time instead of misaccounting downstream.
 error FeeOnTransferNotSupported();
+/// @notice The vault has not registered this lot via `setParkingLot`, so nothing parked here can
+///         settle: the binding is two-sided and the vault's half is missing.
+error NotRegisteredParkingLot();
 // Note: `DepositNotAllowed` (used by the deposit allow-list gate below) is declared in
 // IEmberVault.sol and inherited via that import — do not re-declare it here.
 
@@ -58,7 +64,9 @@ error FeeOnTransferNotSupported();
  *         and queues a request. The operator later calls {processDeposits}, which deposits the
  *         escrowed collateral into the vault on the user's behalf (the vault mints shares
  *         directly to the user at the current rate). Users may {cancelDeposit} a pending request
- *         at any time to reclaim their escrow immediately.
+ *         to reclaim their escrow immediately, unless cancellation is paused
+ *         ({setCancellationsPaused}), which stops depositors withdrawing from the queue — but not
+ *         {processDeposits} draining it — so the curator has a firm figure for the next run.
  *
  * @dev The vault owner must set this contract as the vault's `parkingLot` (via
  *      EmberVault.setParkingLot) so that its forwarded {IAsyncVaultDeposit.deposit} calls are
@@ -104,7 +112,8 @@ contract EmberDepositParkingLot is
   /// @notice Operator authorized to process the queue into the vault
   address public operator;
 
-  /// @notice When true, new deposits are blocked (processing + cancellation remain available)
+  /// @notice When true, new deposits are blocked. Does not gate {processDeposits} or
+  ///         {cancelDeposit} — for cancellation see {cancellationsPaused}.
   bool public depositsPaused;
 
   /// @notice Monotonic request counter and queue key for each request. Also the FIFO TAIL:
@@ -140,9 +149,14 @@ contract EmberDepositParkingLot is
   /// @notice Number of addresses currently on `depositAllowList`. Gates the list: 0 = open.
   uint256 public depositAllowListCount;
 
-  /// @dev Reserved storage gap for future upgrades. Decremented by 2 when `depositAllowList` and
+  /// @notice When true, {cancelDeposit} is blocked — see {setCancellationsPaused}. Does not
+  ///         affect {processDeposits}, which still drains the queue.
+  bool public cancellationsPaused;
+
+  /// @dev Reserved storage gap for future upgrades. Decremented by 1 when
+  ///      `cancellationsPaused` was added (was 41), and by 2 when `depositAllowList` and
   ///      `depositAllowListCount` were added (was 43).
-  uint256[41] private __gap;
+  uint256[40] private __gap;
 
   // Events
   //
@@ -162,6 +176,7 @@ contract EmberDepositParkingLot is
     address indexed newOperator
   );
   event DepositsPausedUpdated(address indexed vault, bool paused);
+  event CancellationsPausedUpdated(address indexed vault, bool paused);
   event DepositRequested(
     address indexed vault,
     address indexed depositor,
@@ -256,6 +271,17 @@ contract EmberDepositParkingLot is
     _;
   }
 
+  /// @dev The bound vault's admin (its own per-operation pause authority) or the protocol
+  ///      guardian (IEmberProtocolConfig.guardianPauseNonAdminOperations). With the guardian
+  ///      unset (address(0)) only the admin passes.
+  modifier onlyVaultAdminOrGuardian() {
+    if (
+      msg.sender != IEmberVault(address(vault)).roles().admin &&
+      msg.sender != protocolConfig.guardian()
+    ) revert Unauthorized();
+    _;
+  }
+
   /// @notice Sets the operator authorised to process the deposit queue.
   /// @dev Callable by the vault admin. The parking lot's own `owner` is reserved for
   ///      the UUPS upgrade key and is deliberately separate: upgrades must live
@@ -270,21 +296,33 @@ contract EmberDepositParkingLot is
     operator = newOperator;
   }
 
-  /// @notice Pauses or unpauses new deposits (processing + cancellation remain available).
-  /// @dev Callable by the bound vault's admin OR the protocol guardian. The admin path mirrors
-  ///      the vault's own per-operation pause authority (setPausedStatus is admin-only via
-  ///      ProtocolConfig); the guardian path mirrors the guardian's emergency-pause authority
-  ///      over non-admin operations elsewhere in the protocol
-  ///      (see IEmberProtocolConfig.guardianPauseNonAdminOperations). When the guardian is unset
-  ///      (address(0)) only the vault admin can call this.
-  function setDepositsPaused(bool paused) external {
-    if (
-      msg.sender != IEmberVault(address(vault)).roles().admin &&
-      msg.sender != protocolConfig.guardian()
-    ) revert Unauthorized();
+  /// @notice Pauses or unpauses new deposits. This flag does not gate {processDeposits} or
+  ///         {cancelDeposit} (whether cancellation is reachable is {cancellationsPaused}).
+  /// @dev Callable by the bound vault's admin OR the protocol guardian.
+  function setDepositsPaused(bool paused) external onlyVaultAdminOrGuardian {
     if (paused == depositsPaused) revert SameValue();
     depositsPaused = paused;
     emit DepositsPausedUpdated(address(vault), paused);
+  }
+
+  /// @notice Pauses or unpauses cancellation of pending requests: depositors can no longer
+  ///         withdraw from the queue, though {processDeposits} still drains it and new parks
+  ///         still join it.
+  /// @dev Callable by the bound vault's admin OR the protocol guardian. Gives the curator a firm
+  ///      figure for the next run — without it, depositors can park, inflate the inflow the
+  ///      curator has allocated against, then cancel before it settles.
+  ///
+  ///      Does NOT gate {deposit}: parks must stay open, or this works against the inflow it
+  ///      exists to guarantee. A depositor who parks while it is set cannot cancel until it clears.
+  ///
+  ///      Two limits. `totalPendingAssets` is still not a floor — {_forward} refunds any request
+  ///      whose depositor was blacklisted after parking, or that the vault rejects (vault pause,
+  ///      max TVL). And with the global protocol pause also set, {processDeposits} is gated too,
+  ///      so nothing leaves escrow until one of the two is cleared.
+  function setCancellationsPaused(bool paused) external onlyVaultAdminOrGuardian {
+    if (paused == cancellationsPaused) revert SameValue();
+    cancellationsPaused = paused;
+    emit CancellationsPausedUpdated(address(vault), paused);
   }
 
   /// @notice Adds (`status=true`) or removes (`status=false`) `account` from the deposit
@@ -346,6 +384,9 @@ contract EmberDepositParkingLot is
     // currently settle. Mirrors the protocol-pause and local-pause checks above.
     (bool vaultDepositsPaused, , ) = vault.pauseStatus();
     if (vaultDepositsPaused) revert OperationPaused();
+    // Same reasoning, stronger case: until the vault points back at this lot, every forward
+    // either wedges the batch or is refunded, so nothing escrowed here could ever settle.
+    if (vault.parkingLot() != address(this)) revert NotRegisteredParkingLot();
     if (assets == 0) revert ZeroAmount();
     if (receiver == address(0)) revert ZeroAddress();
     // Reject receivers with no redemption path for the minted shares (would lock them forever):
@@ -412,8 +453,10 @@ contract EmberDepositParkingLot is
   ///      slots — this makes cancel-then-redeposit "queue stuffing" pay for its own skip cost
   ///      (the head advance is bounded by, and charged to, the canceller). A cancel of a non-head
   ///      slot just zeroes it; it is skipped (one SLOAD) when {processDeposits} reaches it.
+  ///      Reverts `OperationPaused` while {cancellationsPaused} is set.
   /// @param seq The sequence number of the request to cancel
   function cancelDeposit(uint256 seq) external nonReentrant {
+    if (cancellationsPaused) revert OperationPaused();
     DepositRequest memory request = depositRequests[seq];
     // Zero depositor => already settled; non-matching => not the caller's. Both invalid.
     if (request.depositor != msg.sender) revert InvalidRequest();
@@ -467,24 +510,49 @@ contract EmberDepositParkingLot is
   ///         receiver), it is recorded as a {claimable} pull-payment instead. So no single entry —
   ///         not even one with an undeliverable refund — can wedge the queue. Cancelled entries
   ///         are skipped silently.
-  /// @param numRequests Maximum number of queued requests to process this call
+  /// @param numRequests Maximum number of queued SLOTS to walk this call — cancelled slots count
+  ///        towards it, so this is not the number of deposits forwarded. To settle through a
+  ///        known request instead, use {processDepositsUpTo}.
   function processDeposits(uint256 numRequests) external nonReentrant onlyOperator {
     if (protocolConfig.getProtocolPauseStatus()) revert OperationPaused();
     if (numRequests == 0) revert ZeroAmount();
 
-    // FIFO over seqs in (head, tail]. head advances monotonically; there is no array to grow or
-    // delete, so freeing each consumed slot is O(1) (a single `delete depositRequests[seq]`).
     uint256 head = queueStartIndex;
-    uint256 tail = sequenceNumber;
-    {
-      uint256 available = tail - head; // head never exceeds tail
-      if (numRequests > available) numRequests = available;
-    }
+    uint256 available = sequenceNumber - head; // head never exceeds tail
+    // Asking for more than the queue holds settles the whole queue rather than reverting.
+    if (numRequests > available) numRequests = available;
 
-    for (uint256 i = 0; i < numRequests; ) {
+    _processQueue(head + numRequests);
+  }
+
+  /// @notice Forwards every queued deposit up to and including `upToSequenceNumber`. Same
+  ///         semantics as {processDeposits} otherwise.
+  /// @dev Bounds the batch by request, not count: {processDeposits}'s `numRequests` counts slots
+  ///      walked and cancelled slots count towards it, so settling through a known request means
+  ///      getting `seq - queueStartIndex` right off-chain.
+  ///
+  ///      Must name a PENDING request; neither end is clamped, since widening a past-the-tail id
+  ///      would settle deposits the curator never committed to. To drain unconditionally, use
+  ///      `processDeposits(type(uint256).max)`.
+  /// @param upToSequenceNumber Last request sequence number to settle (inclusive)
+  function processDepositsUpTo(uint256 upToSequenceNumber) external nonReentrant onlyOperator {
+    if (protocolConfig.getProtocolPauseStatus()) revert OperationPaused();
+
+    if (upToSequenceNumber > sequenceNumber) revert IndexOutOfBounds();
+    if (upToSequenceNumber <= queueStartIndex) revert InvalidRequest();
+
+    _processQueue(upToSequenceNumber);
+  }
+
+  /// @dev Shared FIFO drain for both entry points: settles seqs in (queueStartIndex, lastSeq].
+  ///      Callers must pass a `lastSeq` no greater than {sequenceNumber}. head advances
+  ///      monotonically, so freeing each consumed slot is O(1).
+  function _processQueue(uint256 lastSeq) private {
+    uint256 head = queueStartIndex;
+
+    while (head < lastSeq) {
       unchecked {
         head++; // next seq to process (seqs are 1-based and contiguous)
-        i++;
       }
       uint256 seq = head;
 
@@ -517,7 +585,13 @@ contract EmberDepositParkingLot is
     // used for vault-rejected forwards; the refund transfer itself may also be
     // undeliverable if the token layer enforces the blacklist, in which case
     // {_refundOrCredit} records a {claimable} balance instead of reverting).
-    if (protocolConfig.isAccountBlacklisted(request.depositor)) {
+    // Also skip + refund once the vault no longer points at this lot (unset or replaced after the
+    // request was parked). Checked before the vault call on purpose: with `parkingLot == 0` the
+    // vault's deposit gate is open, so the deposit would mint and then `recordDepositFor` below
+    // would reject this lot — the batch used to revert there and wedge the whole queue.
+    if (
+      protocolConfig.isAccountBlacklisted(request.depositor) || vault.parkingLot() != address(this)
+    ) {
       _refundOrCredit(request.depositor, request.assets);
       emit DepositSkipped(address(vault), request.depositor, request.receiver, request.assets, seq);
       return;
@@ -623,7 +697,7 @@ contract EmberDepositParkingLot is
   }
 
   function version() external pure virtual returns (string memory) {
-    return "v1.1.0";
+    return "v1.4.0";
   }
 
   /// @dev Owner-gated UUPS upgrade hook. Because this contract holds live user escrow, an upgrade

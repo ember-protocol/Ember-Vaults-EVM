@@ -57,3 +57,4 @@ out/*.sol
 !.yarn/sdks
 !.yarn/versions
 .pnp.*
+verification/

@@ -9,7 +9,7 @@ on:
 jobs:
   format-check:
     name: Format Check
-    runs-on: ubuntu-latest
+    runs-on: piston-2cpu-ubuntu-2402
 
     steps:
       - name: Checkout code
@@ -29,7 +29,7 @@ jobs:
 
   compile:
     name: Compile Contracts
-    runs-on: ubuntu-latest
+    runs-on: piston-4cpu-ubuntu-2402
 
     steps:
       - name: Checkout code
@@ -49,7 +49,7 @@ jobs:
 
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: piston-4cpu-ubuntu-2402
 
     steps:
       - name: Checkout code
@@ -79,7 +79,7 @@ jobs:
 
   validate-upgrades:
     name: Validate Upgrade Compatibility
-    runs-on: ubuntu-latest
+    runs-on: piston-4cpu-ubuntu-2402
     # NOTE: Initially non-blocking. Flip `continue-on-error` to false (and make
     # this job a required check in branch protection) once a few green runs
     # confirm the manifest reconciliation is correct.
@@ -87,7 +87,37 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network: [mainnet, pharos]
+        # One entry per network with a deployment file and an .openzeppelin manifest.
+        # Carried per-entry rather than as nested ternaries in `env:`, which stopped being
+        # readable at two networks and does not survive a third.
+        #   rpc_env   the variable hardhat.config reads for this network
+        #   secret    repo secret preferred for it; absent (e.g. fork PRs) falls back to default_rpc
+        include:
+          - network: mainnet
+            rpc_env: MAINNET_RPC_URL
+            secret: MAINNET_RPC_URL
+            default_rpc: https://ethereum-rpc.publicnode.com
+            fallback_rpcs: https://cloudflare-eth.com,https://rpc.flashbots.net
+          - network: pharos
+            rpc_env: PHAROS_RPC_URL
+            secret: PHAROS_RPC_URL
+            default_rpc: https://rpc.pharos.xyz
+            fallback_rpcs: https://infra.originstake.com/pharos/evm
+          - network: base
+            rpc_env: BASE_MAINNET_RPC_URL
+            secret: BASE_MAINNET_RPC_URL
+            default_rpc: https://mainnet.base.org
+            fallback_rpcs: https://base-rpc.publicnode.com,https://base.drpc.org,https://base.meowrpc.com
+          - network: monad
+            rpc_env: MONAD_RPC_URL
+            secret: MONAD_RPC_URL
+            default_rpc: https://rpc.monad.xyz
+            fallback_rpcs: https://monad.drpc.org
+          - network: arbitrum
+            rpc_env: ARBITRUM_RPC_URL
+            secret: ARBITRUM_RPC_URL
+            default_rpc: https://arb1.arbitrum.io/rpc
+            fallback_rpcs: https://arbitrum-one-rpc.publicnode.com,https://arbitrum.drpc.org
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -111,16 +141,17 @@ jobs:
         shell: bash --noprofile --norc {0}
         env:
           DEPLOY_ON: ${{ matrix.network }}
-          # Each network: prefer the matching repo secret, then fall back to
-          # public read-only RPC(s). All defaults are unauthenticated.
-          PRIMARY_RPC: ${{ matrix.network == 'mainnet' && (secrets.MAINNET_RPC_URL || 'https://ethereum-rpc.publicnode.com') || (secrets.PHAROS_RPC_URL || 'https://rpc.pharos.xyz') }}
-          FALLBACK_RPCS: ${{ matrix.network == 'mainnet' && 'https://eth.llamarpc.com,https://cloudflare-eth.com,https://rpc.flashbots.net' || 'https://infra.originstake.com/pharos/evm' }}
+          # Prefer the matching repo secret, then fall back to public read-only RPC(s).
+          # All defaults are unauthenticated, so a fork PR still gets a real run.
+          PRIMARY_RPC: ${{ secrets[matrix.secret] || matrix.default_rpc }}
+          FALLBACK_RPCS: ${{ matrix.fallback_rpcs }}
           NETWORK: ${{ matrix.network }}
+          RPC_ENV: ${{ matrix.rpc_env }}
         run: |
           set -u
           if [ -z "${PRIMARY_RPC:-}" ]; then
             echo "❌ PRIMARY_RPC is empty for $NETWORK."
-            echo "   Configure the matching repo secret (MAINNET_RPC_URL or PHAROS_RPC_URL)."
+            echo "   Configure the $RPC_ENV repo secret, or set a default_rpc in the job matrix."
             exit 1
           fi
           URLS="$PRIMARY_RPC"
@@ -130,11 +161,9 @@ jobs:
           for url in "${LIST[@]}"; do
             ATTEMPT=$((ATTEMPT+1))
             echo "::group::RPC attempt $ATTEMPT: $url"
-            case "$NETWORK" in
-              mainnet) MAINNET_RPC_URL="$url" yarn ci:validate-upgrades --network "$NETWORK" ;;
-              pharos)  PHAROS_RPC_URL="$url"  yarn ci:validate-upgrades --network "$NETWORK" ;;
-              *)       echo "Unknown network: $NETWORK"; exit 1 ;;
-            esac
+            # `env NAME=value` so the variable hardhat.config reads for this network is set by
+            # name from the matrix, rather than a case arm that has to be extended per chain.
+            env "$RPC_ENV=$url" yarn ci:validate-upgrades --network "$NETWORK"
             STATUS=$?
             echo "::endgroup::"
             # Exit codes from the script:

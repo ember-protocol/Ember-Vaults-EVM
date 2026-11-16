@@ -87,6 +87,10 @@ describe("EmberVault parking-lot gate + EmberDepositParkingLot", function () {
     await collateral.connect(alice).approve(parkingLotAddr, ethers.MaxUint256);
   });
 
+  it("reports its version", async function () {
+    expect(await parkingLot.version()).to.equal("v1.4.0");
+  });
+
   it("gate unset by default: any address can deposit directly (backward compatible)", async function () {
     expect(await vault.parkingLot()).to.equal(ethers.ZeroAddress);
     await vault.connect(alice).deposit(DEPOSIT, alice.address);
@@ -349,6 +353,167 @@ describe("EmberVault parking-lot gate + EmberDepositParkingLot", function () {
       );
     });
 
+    it("vault admin and guardian can pause/unpause cancellation; others cannot", async function () {
+      await expect(parkingLot.connect(guardian).setCancellationsPaused(true))
+        .to.emit(parkingLot, "CancellationsPausedUpdated")
+        .withArgs(vaultAddr, true);
+      expect(await parkingLot.cancellationsPaused()).to.equal(true);
+
+      // No-op updates are rejected, as with the deposits pause.
+      await expect(
+        parkingLot.connect(guardian).setCancellationsPaused(true)
+      ).to.be.revertedWithCustomError(parkingLot, "SameValue");
+
+      await expect(parkingLot.connect(guardian).setCancellationsPaused(false))
+        .to.emit(parkingLot, "CancellationsPausedUpdated")
+        .withArgs(vaultAddr, false);
+      expect(await parkingLot.cancellationsPaused()).to.equal(false);
+
+      await expect(
+        parkingLot.connect(guardian).setCancellationsPaused(false)
+      ).to.be.revertedWithCustomError(parkingLot, "SameValue");
+
+      // The vault admin can also toggle it.
+      await parkingLot.connect(admin).setCancellationsPaused(true);
+      await parkingLot.connect(admin).setCancellationsPaused(false);
+
+      // Parking-lot owner (the UUPS upgrade key) has NO operational authority.
+      await expect(
+        parkingLot.connect(owner).setCancellationsPaused(true)
+      ).to.be.revertedWithCustomError(parkingLot, "Unauthorized");
+      await expect(
+        parkingLot.connect(alice).setCancellationsPaused(true)
+      ).to.be.revertedWithCustomError(parkingLot, "Unauthorized");
+    });
+
+    it("while paused depositors cannot withdraw from the queue, but parks and processing still work", async function () {
+      const seq = await parkingLot.connect(alice).deposit.staticCall(DEPOSIT, bob.address);
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+
+      await parkingLot.connect(guardian).setCancellationsPaused(true);
+      const committed = await parkingLot.totalPendingAssets();
+      expect(committed).to.equal(DEPOSIT);
+
+      // Cannot shrink: escrow the curator has allocated against can't be pulled back out.
+      await expect(parkingLot.connect(alice).cancelDeposit(seq)).to.be.revertedWithCustomError(
+        parkingLot,
+        "OperationPaused"
+      );
+      expect(await parkingLot.totalPendingAssets()).to.equal(committed);
+
+      // Can still grow: new parks are unaffected and join the same commitment.
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+      expect(await parkingLot.totalPendingAssets()).to.equal(committed + DEPOSIT);
+      expect(await parkingLot.getPendingDepositsLength()).to.equal(2n);
+
+      // The whole committed amount lands in the vault — the point of the pause. Asserted
+      // exactly (1:1 rate in this suite): a `> 0` check would also pass if one of the two
+      // requests had been silently skipped + refunded via _forward's catch branch, which is
+      // the failure this test exists to rule out.
+      await parkingLot.connect(operator).processDeposits(2);
+      expect(await parkingLot.totalPendingAssets()).to.equal(0n);
+      expect(await parkingLot.getPendingDepositsLength()).to.equal(0n);
+      expect(await vault.balanceOf(bob.address)).to.equal(committed + DEPOSIT);
+
+      // Unpausing restores the cancel path.
+      await parkingLot.connect(guardian).setCancellationsPaused(false);
+      const seq2 = await parkingLot.connect(alice).deposit.staticCall(DEPOSIT, bob.address);
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+      await expect(parkingLot.connect(alice).cancelDeposit(seq2))
+        .to.emit(parkingLot, "DepositCancelled")
+        .withArgs(vaultAddr, alice.address, DEPOSIT, seq2);
+    });
+
+    it("processDepositsUpTo settles through the named request and stops there", async function () {
+      for (let i = 0; i < 4; i++) {
+        await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+      }
+      expect(await parkingLot.sequenceNumber()).to.equal(4n);
+
+      // Settle through seq 2 only.
+      await parkingLot.connect(operator).processDepositsUpTo(2);
+      expect(await parkingLot.queueStartIndex()).to.equal(2n);
+      expect(await parkingLot.totalPendingAssets()).to.equal(DEPOSIT * 2n);
+      expect(await vault.balanceOf(bob.address)).to.equal(DEPOSIT * 2n);
+
+      // Seq 3 and 4 are untouched and still cancellable.
+      await expect(parkingLot.connect(alice).cancelDeposit(3))
+        .to.emit(parkingLot, "DepositCancelled")
+        .withArgs(vaultAddr, alice.address, DEPOSIT, 3);
+
+      await parkingLot.connect(operator).processDepositsUpTo(4);
+      expect(await parkingLot.queueStartIndex()).to.equal(4n);
+      expect(await parkingLot.totalPendingAssets()).to.equal(0n);
+    });
+
+    it("processDepositsUpTo takes the counting error off the caller: cancelled slots don't shift the target", async function () {
+      for (let i = 0; i < 5; i++) {
+        await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+      }
+      // Two holes inside the range we want to settle.
+      await parkingLot.connect(alice).cancelDeposit(2);
+      await parkingLot.connect(alice).cancelDeposit(4);
+
+      // "Settle everything through request 5" — no need to know 2 of the 5 slots are dead.
+      // processDeposits(3) would have stopped at seq 3, having forwarded only seq 1 and 3.
+      await parkingLot.connect(operator).processDepositsUpTo(5);
+
+      expect(await parkingLot.queueStartIndex()).to.equal(5n);
+      expect(await parkingLot.getPendingDepositsLength()).to.equal(0n);
+      expect(await parkingLot.totalPendingAssets()).to.equal(0n);
+      // Only the three live ones forwarded (1, 3, 5); the two cancelled were already refunded.
+      expect(await vault.balanceOf(bob.address)).to.equal(DEPOSIT * 3n);
+    });
+
+    it("processDepositsUpTo rejects a sequence number that isn't a pending request", async function () {
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+
+      // Past the tail names a request that doesn't exist — a stale id, a shifted decimal, a
+      // sentinel. Reverting stops a fat-finger from settling the whole queue, including deposits
+      // parked seconds earlier that the curator hasn't committed to.
+      await expect(
+        parkingLot.connect(operator).processDepositsUpTo(999)
+      ).to.be.revertedWithCustomError(parkingLot, "IndexOutOfBounds");
+      await expect(
+        parkingLot.connect(operator).processDepositsUpTo(ethers.MaxUint256)
+      ).to.be.revertedWithCustomError(parkingLot, "IndexOutOfBounds");
+      // Nothing settled.
+      expect(await parkingLot.queueStartIndex()).to.equal(0n);
+      expect(await parkingLot.totalPendingAssets()).to.equal(DEPOSIT * 2n);
+
+      // The tail itself is valid — that is how you settle the whole queue by id.
+      await parkingLot.connect(operator).processDepositsUpTo(2);
+      expect(await parkingLot.queueStartIndex()).to.equal(2n);
+      expect(await parkingLot.totalPendingAssets()).to.equal(0n);
+
+      // At or below the head there is nothing left to settle.
+      await expect(
+        parkingLot.connect(operator).processDepositsUpTo(2)
+      ).to.be.revertedWithCustomError(parkingLot, "InvalidRequest");
+      await expect(
+        parkingLot.connect(operator).processDepositsUpTo(0)
+      ).to.be.revertedWithCustomError(parkingLot, "InvalidRequest");
+    });
+
+    it("processDepositsUpTo is operator-only and respects the protocol pause", async function () {
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+
+      await expect(parkingLot.connect(alice).processDepositsUpTo(1)).to.be.revertedWithCustomError(
+        parkingLot,
+        "Unauthorized"
+      );
+      await expect(parkingLot.connect(admin).processDepositsUpTo(1)).to.be.revertedWithCustomError(
+        parkingLot,
+        "Unauthorized"
+      );
+
+      await protocolConfig.connect(guardian).guardianPauseNonAdminOperations(true);
+      await expect(
+        parkingLot.connect(operator).processDepositsUpTo(1)
+      ).to.be.revertedWithCustomError(parkingLot, "OperationPaused");
+    });
+
     it("skips + refunds a request the vault rejects (blacklisted receiver) without wedging the queue", async function () {
       const seq1 = await parkingLot.connect(alice).deposit.staticCall(DEPOSIT, bob.address);
       await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
@@ -503,6 +668,69 @@ describe("EmberVault parking-lot gate + EmberDepositParkingLot", function () {
     });
   });
 
+  // The lot<->vault binding is two-sided: the lot stores its vault, and the vault must separately
+  // register the lot. Until it does, nothing parked here can settle.
+  describe("registration with the vault", function () {
+    it("rejects deposits before the vault has registered the lot", async function () {
+      expect(await vault.parkingLot()).to.equal(ethers.ZeroAddress);
+      await expect(
+        parkingLot.connect(alice).deposit(DEPOSIT, bob.address)
+      ).to.be.revertedWithCustomError(parkingLot, "NotRegisteredParkingLot");
+    });
+
+    it("rejects deposits when the vault registered a different lot", async function () {
+      await protocolConfig.connect(admin).setVaultParkingLot(vaultAddr, bob.address);
+      await expect(
+        parkingLot.connect(alice).deposit(DEPOSIT, bob.address)
+      ).to.be.revertedWithCustomError(parkingLot, "NotRegisteredParkingLot");
+    });
+
+    it("accepts deposits once registered", async function () {
+      await protocolConfig.connect(admin).setVaultParkingLot(vaultAddr, parkingLotAddr);
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+      expect(await parkingLot.getPendingDepositsLength()).to.equal(1n);
+    });
+
+    // A queued request whose lot is later unset used to wedge the queue: the vault's gate is open
+    // with no lot, so the forward minted, then recordDepositFor rejected the lot and reverted the
+    // whole batch. It is now refunded before the vault is ever called.
+    it("refunds queued requests instead of wedging when the lot is unregistered later", async function () {
+      const validator = (await upgrades.deployProxy(
+        await ethers.getContractFactory("EmberVaultValidator"),
+        [await protocolConfig.getAddress(), owner.address],
+        { initializer: "initialize", kind: "uups" }
+      )) as unknown as any;
+      await protocolConfig
+        .connect(admin)
+        .setVaultValidator(vaultAddr, await validator.getAddress());
+      await protocolConfig.connect(admin).setVaultParkingLot(vaultAddr, parkingLotAddr);
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+
+      await protocolConfig.connect(admin).setVaultParkingLot(vaultAddr, ethers.ZeroAddress);
+      const before = await collateral.balanceOf(alice.address);
+
+      await expect(parkingLot.connect(operator).processDeposits(1)).to.emit(
+        parkingLot,
+        "DepositSkipped"
+      );
+      expect(await vault.balanceOf(bob.address)).to.equal(0n);
+      expect(await collateral.balanceOf(alice.address)).to.equal(before + DEPOSIT);
+      expect(await parkingLot.getPendingDepositsLength()).to.equal(0n);
+    });
+
+    it("refunds queued requests when the vault moved to a different lot", async function () {
+      await protocolConfig.connect(admin).setVaultParkingLot(vaultAddr, parkingLotAddr);
+      await parkingLot.connect(alice).deposit(DEPOSIT, bob.address);
+      await protocolConfig.connect(admin).setVaultParkingLot(vaultAddr, bob.address);
+
+      await expect(parkingLot.connect(operator).processDeposits(1)).to.emit(
+        parkingLot,
+        "DepositSkipped"
+      );
+      expect(await vault.balanceOf(bob.address)).to.equal(0n);
+    });
+  });
+
   // Operator-managed deposit allow-list: empty list = open to everyone; non-empty = only listed
   // addresses may park. (Independent of the vault's parking-lot gate — this restricts who can
   // deposit INTO the parking lot.)
@@ -512,6 +740,8 @@ describe("EmberVault parking-lot gate + EmberDepositParkingLot", function () {
       // allowed and not-allowed paths are exercised on a fully-set-up depositor.
       await collateral.connect(owner).transfer(bob.address, ethers.parseUnits("1000000", 18));
       await collateral.connect(bob).approve(parkingLotAddr, ethers.MaxUint256);
+      // The lot only accepts deposits once the vault points back at it.
+      await protocolConfig.connect(admin).setVaultParkingLot(vaultAddr, parkingLotAddr);
     });
 
     it("empty list: anyone may deposit (backward compatible)", async function () {

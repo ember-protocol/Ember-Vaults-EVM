@@ -1,5 +1,6 @@
 import { ethers, upgrades } from "hardhat";
 import { getImplementationAddressWithRetry } from "../utils/erc1967";
+import { waitForCode } from "../utils/chain";
 import * as fs from "fs";
 import { EmberETHVault__factory, EmberVault__factory } from "../../typechain-types";
 
@@ -138,8 +139,7 @@ async function main() {
   }
 
   const EmberVaultFactory = (await ethers.getContractFactory(vaultType, factoryOptions)) as
-    | EmberETHVault__factory
-    | EmberVault__factory;
+    EmberETHVault__factory | EmberVault__factory;
 
   // Validate storage-layout compatibility for every proxy BEFORE deploying anything.
   // This is what catches the class of bug where a renamed/reordered/removed state
@@ -183,6 +183,7 @@ async function main() {
   console.log("   ✅ New Implementation deployed at:", newImplementationAddress);
 
   // Verify the new implementation
+  await waitForCode(newImplementationAddress);
   const newImplVersion = await newImplementation.version();
   console.log("   New Implementation Version:", newImplVersion);
 

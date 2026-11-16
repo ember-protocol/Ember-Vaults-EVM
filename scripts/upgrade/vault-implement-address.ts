@@ -1,5 +1,6 @@
 import { ethers, upgrades } from "hardhat";
 import { getImplementationAddressWithRetry } from "../utils/erc1967";
+import { waitForCode } from "../utils/chain";
 import * as fs from "fs";
 
 /**
@@ -170,6 +171,7 @@ async function main() {
   console.log("   ✅ New Implementation deployed at:", newImplementationAddress);
 
   // Verify the new implementation
+  await waitForCode(newImplementationAddress);
   const newImplVersion = await newImplementation.version();
   console.log("   New Implementation Version:", newImplVersion);
 

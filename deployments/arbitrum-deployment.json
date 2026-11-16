@@ -1,0 +1,131 @@
+{
+  "network": "arbitrum",
+  "chainId": "42161",
+  "contracts": {
+    "protocolConfig": {
+      "proxyAddress": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+      "implementationAddress": "0x72B819b067f04AFeDc6c74E6a9F9B9f1D022D757",
+      "ownerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+      "version": "v2.5.0",
+      "deployedAt": "2026-10-29T17:23:35.113Z",
+      "deploymentBlockNumber": 519423133,
+      "guardian": "0x819dC332Ed395500a1fA4bC421876C367af1e03B",
+      "guardianUpdatedAt": "2026-11-05T21:12:37.769Z",
+      "platformFeeRecipient": "0x4da0c459aa101cE9f7c44c7cAdF17bB628fdDac6",
+      "platformFeeRecipientUpdatedAt": "2026-11-05T21:58:34.092Z",
+      "upgradedAt": "2026-11-12T12:44:17.152Z",
+      "upgradedInBlock": 523566659
+    },
+    "vaultValidator": {
+      "proxyAddress": "0x9d753059f0aBDD90B197F3BE9d3cbC49bC01d31a",
+      "implementationAddress": "0x35b11E47fa41358B094B4aa989f94aD109Fe9310",
+      "protocolConfigAddress": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+      "ownerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+      "version": "v1.2.0",
+      "deployedAt": "2026-10-29T17:23:58.826Z",
+      "deploymentBlockNumber": 519423221,
+      "upgradedAt": "2026-11-12T12:42:53.942Z",
+      "upgradedInBlock": 523566371
+    },
+    "vaults": {
+      "emberSalt": {
+        "proxyAddress": "0x4b1d072F3bD6F35696A5D7D87A9b968b035d5196",
+        "implementationAddress": "0x1a2d55829E2dC590dcd759560b09D2DD7d409dd2",
+        "ownerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "name": "Ember Salt",
+        "receiptTokenSymbol": "eSALT",
+        "collateralToken": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        "admin": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+        "maxTVL": "20000000000000",
+        "version": "v2.7.0",
+        "deployedAt": "2026-10-29T18:53:45.472Z",
+        "deploymentBlockNumber": 519442241,
+        "validatorAddress": "0x9d753059f0aBDD90B197F3BE9d3cbC49bC01d31a",
+        "upgradedAt": "2026-11-12T12:45:19.528Z",
+        "upgradedInBlock": 523566884
+      },
+      "bitgetBitwiseBasisArbitrage": {
+        "proxyAddress": "0x18e2e2De82dE517A14D48D6da8Ed3Fc5FFC06227",
+        "implementationAddress": "0x1a2d55829E2dC590dcd759560b09D2DD7d409dd2",
+        "ownerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "name": "Bitget Bitwise Basis Arbitrage",
+        "receiptTokenSymbol": "bgBARB",
+        "collateralToken": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+        "admin": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+        "maxTVL": "20000000000000",
+        "version": "v2.7.0",
+        "deployedAt": "2026-11-05T20:16:09.246Z",
+        "deploymentBlockNumber": 521581336,
+        "validatorAddress": "0x9d753059f0aBDD90B197F3BE9d3cbC49bC01d31a",
+        "upgradedAt": "2026-11-12T12:45:21.471Z",
+        "upgradedInBlock": 523566892
+      },
+      "rqqqEarn": {
+        "proxyAddress": "0x69329623dE44d31102AF9a10CFA3D35Aa3d1714E",
+        "implementationAddress": "0x1a2d55829E2dC590dcd759560b09D2DD7d409dd2",
+        "ownerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "name": "rQQQ Earn",
+        "receiptTokenSymbol": "rQQQ+",
+        "collateralToken": "0x6760e0064eee21c89c21f6c00b752e37cb1cd6de",
+        "admin": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+        "maxTVL": "15250000000000000000000",
+        "version": "v2.7.0",
+        "deployedAt": "2026-11-05T20:21:44.711Z",
+        "deploymentBlockNumber": 521582579,
+        "validatorAddress": "0x9d753059f0aBDD90B197F3BE9d3cbC49bC01d31a",
+        "upgradedAt": "2026-11-12T12:45:23.732Z",
+        "upgradedInBlock": 523566900
+      },
+      "rspyEarn": {
+        "proxyAddress": "0x61C3F46c46607C87Bc118c7460471BF1a665cE0A",
+        "implementationAddress": "0x1a2d55829E2dC590dcd759560b09D2DD7d409dd2",
+        "ownerAddress": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "name": "rSPY Earn",
+        "receiptTokenSymbol": "rSPY+",
+        "collateralToken": "0x9a0fda21276f245b89d2b7f1120f42e4466b1cb5",
+        "admin": "0xEED5bD26ad1608b13577BdC5d1f6912A5d40a3aC",
+        "operator": "0x71da2342b11AE27aF0a7E2507eCeF6CC89572738",
+        "rateManager": "0x291C3315707A8Ebcd6a6D202cA639002eA4Ff01D",
+        "protocolConfig": "0xF93A8e3a5DC9ffEf0d091c3539B0CFc753947637",
+        "maxTVL": "13550000000000000000000",
+        "version": "v2.7.0",
+        "deployedAt": "2026-11-05T20:24:38.279Z",
+        "deploymentBlockNumber": 521583236,
+        "validatorAddress": "0x9d753059f0aBDD90B197F3BE9d3cbC49bC01d31a",
+        "upgradedAt": "2026-11-12T12:45:25.763Z",
+        "upgradedInBlock": 523566910
+      }
+    },
+    "timelocks": {
+      "owner": {
+        "address": "0x0Fc935a46c7Bad175b2962D26aa4DEF02e5371dA",
+        "minDelay": "86400",
+        "proposers": ["0x203d4ceC733Dcda6eD87bd3b7aB6cb37149201C2"],
+        "executors": ["0xA2160f1dee338b921D13c9d02a7E2caDB02aF38f"],
+        "cancellers": ["0x71aA7564fAE10A393F2Bf0efA9E6350d872f07f7"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-11-05T20:32:29.693Z",
+        "deploymentBlockNumber": 521584921
+      },
+      "admin": {
+        "address": "0x02f2a70C7c681F886D69d376Fb353C34D2d5E5c9",
+        "minDelay": "43200",
+        "proposers": ["0xE9F9f43F89e4C375DBEB845477b35DBE3ccBe4c6"],
+        "executors": ["0xA2160f1dee338b921D13c9d02a7E2caDB02aF38f"],
+        "cancellers": ["0x71aA7564fAE10A393F2Bf0efA9E6350d872f07f7"],
+        "admin": "0x0000000000000000000000000000000000000000",
+        "deployedAt": "2026-11-05T20:34:04.255Z",
+        "deploymentBlockNumber": 521585274
+      }
+    }
+  }
+}

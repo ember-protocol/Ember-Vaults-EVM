@@ -162,6 +162,21 @@ async function main() {
     }
   }
 
+  // 3b. Deposit parking lots
+  const lots = contracts.depositParkingLots || {};
+  for (const key of Object.keys(lots)) {
+    const l = lots[key];
+    if (!l?.proxyAddress) continue;
+    const loc = `depositParkingLots.${key}`;
+    const lot = await safe(loc, "getContractAt", () =>
+      ethers.getContractAt("EmberDepositParkingLot", l.proxyAddress)
+    );
+    if (lot) {
+      const owner = await safe(loc, "owner()", () => lot.owner());
+      record(loc, "owner", ownerTimelock, owner);
+    }
+  }
+
   // 4. OFT adapters (informational — flagged as warn, not a hard fail)
   const adapters = contracts.oftAdapters || {};
   for (const key of Object.keys(adapters)) {

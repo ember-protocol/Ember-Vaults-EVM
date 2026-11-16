@@ -14,6 +14,17 @@
         "deployedAt": "2026-04-03T16:55:30.853Z",
         "deploymentBlockNumber": 10582803
       },
+      "USDC": {
+        "proxyAddress": "0x9D4B28D10807B7aF843ba0588086Fd768206c54c",
+        "implementationAddress": "0x087F5D9648e25e2031d31C900ACDb9867CDd3D40",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "USD Coin",
+        "symbol": "USDC",
+        "decimals": 6,
+        "version": "1",
+        "deployedAt": "2026-08-25T10:56:14.021Z",
+        "deploymentBlockNumber": 11563595
+      },
       "WETH": {
         "address": "0x0180bA2A01a7ED09a977B9893C0B903a70554259",
         "name": "Wrapped Ether",
@@ -23,74 +34,83 @@
         "supportsPermit": true,
         "deployedAt": "2026-04-03T17:28:40.964Z",
         "deploymentBlockNumber": 10582958
-      },
-      "protocolConfig": {
-        "proxyAddress": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
-        "implementationAddress": "0x37AB61ca8669C798d9cd4509139c77C8e87941e3",
-        "ownerAddress": "0x84a12DBCE24f48855206e8b1D41DAcDEa1cf54b1",
-        "version": "v2.1.0",
-        "deployedAt": "2026-06-03T20:35:51.643Z",
-        "deploymentBlockNumber": 10983638,
-        "upgradedAt": "2026-06-03T20:42:50.303Z",
-        "upgradedInBlock": 10983671
-      },
-      "vaultValidator": {
-        "proxyAddress": "0x5C7127ed6b00329cCc548689B0364eE1327796B6",
-        "implementationAddress": "0x1Fec355130943AbED730799Ed15fE893958AaA24",
-        "protocolConfigAddress": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+      }
+    },
+    "protocolConfig": {
+      "proxyAddress": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+      "implementationAddress": "0x37AB61ca8669C798d9cd4509139c77C8e87941e3",
+      "ownerAddress": "0x84a12DBCE24f48855206e8b1D41DAcDEa1cf54b1",
+      "version": "v2.1.0",
+      "deployedAt": "2026-06-03T20:35:51.643Z",
+      "deploymentBlockNumber": 10983638,
+      "upgradedAt": "2026-06-03T20:42:50.303Z",
+      "upgradedInBlock": 10983671
+    },
+    "vaultValidator": {
+      "proxyAddress": "0x5C7127ed6b00329cCc548689B0364eE1327796B6",
+      "implementationAddress": "0x1Fec355130943AbED730799Ed15fE893958AaA24",
+      "protocolConfigAddress": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+      "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+      "version": "v1.0.0",
+      "deployedAt": "2026-06-03T20:36:25.739Z",
+      "deploymentBlockNumber": 10983641
+    },
+    "vaults": {
+      "emberSepoliaStagingVault": {
+        "proxyAddress": "0x41521F4443f402c28522280e86dDc65479e95645",
+        "implementationAddress": "0x19b6768A172634b51a3292b749Ee6714E78A2E7E",
         "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
-        "version": "v1.0.0",
-        "deployedAt": "2026-06-03T20:36:25.739Z",
-        "deploymentBlockNumber": 10983641
+        "name": "Ember Sepolia Staging Vault",
+        "receiptTokenSymbol": "esepUSDC",
+        "collateralToken": "0x91c11E7Ded0A9d7426158CDE11b8485019d223E9",
+        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+        "protocolConfig": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+        "maxTVL": "10000000000000",
+        "version": "v2.1.0",
+        "deployedAt": "2026-06-03T20:39:14.695Z",
+        "deploymentBlockNumber": 10983654,
+        "upgradedAt": "2026-06-03T20:44:28.365Z",
+        "upgradedInBlock": 10983679
       },
-      "vaults": {
-        "emberSepoliaStagingVault": {
-          "proxyAddress": "0x41521F4443f402c28522280e86dDc65479e95645",
-          "implementationAddress": "0x19b6768A172634b51a3292b749Ee6714E78A2E7E",
-          "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
-          "name": "Ember Sepolia Staging Vault",
-          "receiptTokenSymbol": "esepUSDC",
-          "collateralToken": "0x91c11E7Ded0A9d7426158CDE11b8485019d223E9",
-          "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
-          "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-          "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
-          "protocolConfig": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
-          "maxTVL": "10000000000000",
-          "version": "v2.1.0",
-          "deployedAt": "2026-06-03T20:39:14.695Z",
-          "deploymentBlockNumber": 10983654,
-          "upgradedAt": "2026-06-03T20:44:28.365Z",
-          "upgradedInBlock": 10983679
-        }
-      },
-      "ethVaults": {
-        "emberSepoliaStagingEthVault": {
-          "proxyAddress": "0x83918E58d6d580F107cf60E543a43C01104B8402",
-          "implementationAddress": "0xEc84A3B7659A5C5936E2AFab7B3497F4610741Df",
-          "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
-          "name": "Ember Sepolia Staging ETH Vault",
-          "receiptTokenSymbol": "esepETH",
-          "collateralToken": "0x0180bA2A01a7ED09a977B9893C0B903a70554259",
-          "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
-          "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
-          "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
-          "protocolConfig": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
-          "maxTVL": "10000000000000",
-          "version": "v2.1.0-eth",
-          "deployedAt": "2026-06-03T20:39:51.595Z",
-          "deploymentBlockNumber": 10983657,
-          "upgradedAt": "2026-06-03T20:45:13.512Z",
-          "upgradedInBlock": 10983683
-        }
-      },
-      "timelock": {
-        "address": "0xa81361Ee2e466E0F14222d63e7dd8C1F93a98f21",
-        "minDelay": "300",
-        "proposers": ["0xc88901227a85a0Cd3D975A409dD9043Bc0712a56"],
-        "executors": ["0x0000000000000000000000000000000000000000"],
-        "admin": "0x0000000000000000000000000000000000000000",
-        "deployedAt": "2026-06-03T20:46:15.322Z",
-        "deploymentBlockNumber": 10983687
+      "emberTestCcipVault": {
+        "proxyAddress": "0x7eBE31DF40e67c1a67A539a7bbc078732347dCA9",
+        "implementationAddress": "0x7606971a50dBf9db2908c7a553C65EFb1780A449",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Ember Test Ccip Vault",
+        "receiptTokenSymbol": "etCCIP",
+        "collateralToken": "0x9D4B28D10807B7aF843ba0588086Fd768206c54c",
+        "admin": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+        "protocolConfig": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+        "maxTVL": "10000000000000",
+        "version": "v2.4.0",
+        "deployedAt": "2026-08-25T11:02:49.016Z",
+        "deploymentBlockNumber": 11563628,
+        "bridgeAdapter": "0xda1a710b7165FBC1d43cC556A25354cC501e3833",
+        "bridgeAdapterUpdatedAt": "2026-08-25T13:13:37.317Z"
+      }
+    },
+    "ethVaults": {
+      "emberSepoliaStagingEthVault": {
+        "proxyAddress": "0x83918E58d6d580F107cf60E543a43C01104B8402",
+        "implementationAddress": "0xEc84A3B7659A5C5936E2AFab7B3497F4610741Df",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Ember Sepolia Staging ETH Vault",
+        "receiptTokenSymbol": "esepETH",
+        "collateralToken": "0x0180bA2A01a7ED09a977B9893C0B903a70554259",
+        "admin": "0xaD0A72EFCBf777BE57df638762b6F08c0E02A959",
+        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+        "protocolConfig": "0xda7Df8acd61b9EBFC73D0830D5956955406E4f61",
+        "maxTVL": "10000000000000",
+        "version": "v2.1.0-eth",
+        "deployedAt": "2026-06-03T20:39:51.595Z",
+        "deploymentBlockNumber": 10983657,
+        "upgradedAt": "2026-06-03T20:45:13.512Z",
+        "upgradedInBlock": 10983683
       }
     },
     "timelocks": {
@@ -111,6 +131,68 @@
         "admin": "0x0000000000000000000000000000000000000000",
         "deployedAt": "2026-06-09T20:53:26.790Z",
         "deploymentBlockNumber": 11024976
+      }
+    },
+    "ccipPoolFactory": {
+      "address": "0xc9090Ddcd6CC5Dc2e66B98987a0A02dF94161C0D",
+      "deployedAt": "2026-08-25T11:21:24.895Z"
+    },
+    "ccipTokenPools": {
+      "emberTestCcipVaultCcipPool": {
+        "address": "0xda1a710b7165FBC1d43cC556A25354cC501e3833",
+        "contractName": "EmberTokenPool",
+        "typeAndVersion": "EmberBurnMintTokenPool 1.0.0",
+        "vaultKey": "emberTestCcipVault",
+        "vaultAddress": "0x7eBE31DF40e67c1a67A539a7bbc078732347dCA9",
+        "receiptTokenSymbol": "etCCIP",
+        "decimals": 6,
+        "router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
+        "rmnProxy": "0xba3f6251de62dED61Ff98590cB2fDf6871FbB991",
+        "tokenAdminRegistry": "0x95F29FEE11c5C55d26cCcf1DB6772DE953B37B82",
+        "registryModule": "0xa3c796d480638d7476792230da1E2ADa86e031b0",
+        "chainSelector": "16015286601757825753",
+        "advancedPoolHooks": "0x0000000000000000000000000000000000000000",
+        "owner": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "factory": "0xc9090Ddcd6CC5Dc2e66B98987a0A02dF94161C0D",
+        "salt": "ember.ccip.pool.v1",
+        "deployedAt": "2026-08-25T11:21:24.895Z",
+        "deploymentBlockNumber": 11563719,
+        "lanes": {
+          "16098325658947243212": {
+            "remoteNetwork": "atlantic",
+            "remoteChainSelector": "16098325658947243212",
+            "remotePool": "0x78cA3856051AD01780F0106C6124c85E063F199d",
+            "remoteToken": "0xE03c31CaAc8c82B78Ae2E8482C09a6CB179F0C25",
+            "rateLimits": {
+              "enabled": false,
+              "capacity": "0",
+              "rate": "0"
+            },
+            "configuredAt": "2026-08-25T11:28:49.620Z",
+            "txHash": "0xd8f0581c816905c150634b07116a979193f68cc93a8900e97048ff1671fb82d3",
+            "blockNumber": 11563756
+          },
+          "8236463271206331221": {
+            "remoteNetwork": "mantle_sepolia",
+            "remoteChainSelector": "8236463271206331221",
+            "remotePool": "0x41Cbc62e52415C3717e0C7DdcD3CaF1A224aeeA7",
+            "remoteToken": "0x9F32C78475A7F86125E4ff7Fa1383e1994602623",
+            "rateLimits": {
+              "enabled": false,
+              "capacity": "0",
+              "rate": "0"
+            },
+            "configuredAt": "2026-08-27T11:38:25.928Z",
+            "txHash": "0x2de509acaf344e7efe964edfc4d2bcc08a12091f49adac37f92b7e6121c2eab0",
+            "blockNumber": 11577608
+          }
+        },
+        "tokenAdminRegistration": {
+          "administrator": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+          "tokenPool": "0xda1a710b7165FBC1d43cC556A25354cC501e3833",
+          "registeredAt": "2026-08-25T11:31:12.786Z"
+        },
+        "allowedFinalityConfig": "0x00010001"
       }
     }
   }

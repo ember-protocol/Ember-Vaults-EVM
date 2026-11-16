@@ -1,5 +1,6 @@
 import { ethers } from "hardhat";
 import { getImplementationAddressWithRetry } from "./utils/erc1967";
+import { readLinkedLibraries } from "./utils/linked-libraries";
 import {
   addrEq,
   bad,
@@ -25,10 +26,16 @@ import {
  * Hardhat rejects flags it doesn't recognise before the script runs.
  *
  * Fields compared (where a getter exists):
- *   - proxies:        implementationAddress (ERC-1967 slot)
+ *   - proxies:        implementationAddress (ERC-1967 slot), version (version(), where exposed)
  *   - all contracts:  ownerAddress (owner())
  *   - vaults:         admin / operator / rateManager (roles()),
  *                     protocolConfig, validatorAddress, collateralToken, maxTVL
+ *   - atomicLiquidityVaults:
+ *                     admin / operator / rateManager, protocolConfig, validatorAddress,
+ *                     collateralToken, maxTVL, strategyAddress, and the libraries linked into
+ *                     the implementation (libraryAddress, vaultPlatformFeeLibAddress,
+ *                     withdrawalQueueLibAddress)
+ *   - depositParkingLots: vault, operator, protocolConfig
  *   - vaultValidator: protocolConfigAddress
  *   - protocolConfig: guardian (reported; not stored in file)
  *   - oftAdapters:    owner, vaultAddress (token()), peers
@@ -115,18 +122,37 @@ async function safe<T>(
   }
 }
 
-async function checkImplementation(obj: any, proxyAddress: string, location: string) {
+/**
+ * Checks a proxy's implementation (ERC-1967 slot) and `version()`. Returns the implementation
+ * address so callers can inspect its bytecode.
+ */
+async function checkProxy(
+  obj: any,
+  proxyAddress: string,
+  location: string
+): Promise<string | undefined> {
   const impl = await safe(location, "implementation", () =>
     getImplementationAddressWithRetry(proxyAddress, 4, 1500)
   );
   if (impl) check(obj, "implementationAddress", impl, location, { address: true });
+
+  // Not every deployed version exposes version() (the first parking lots predate it), so a
+  // revert here means "nothing to compare", not a read error.
+  const versioned = new ethers.Contract(
+    proxyAddress,
+    ["function version() view returns (string)"],
+    ethers.provider
+  );
+  const version = await versioned.version().catch(() => undefined);
+  if (version) check(obj, "version", version, location);
+  return impl;
 }
 
 async function verifyProtocolConfig(contracts: any) {
   const pc = contracts.protocolConfig;
   if (!pc?.proxyAddress) return;
   const loc = "protocolConfig";
-  await checkImplementation(pc, pc.proxyAddress, loc);
+  await checkProxy(pc, pc.proxyAddress, loc);
   const cfg = await safe(loc, "getContractAt", () =>
     ethers.getContractAt("EmberProtocolConfig", pc.proxyAddress)
   );
@@ -144,7 +170,7 @@ async function verifyValidator(contracts: any) {
   const v = contracts.vaultValidator;
   if (!v?.proxyAddress) return;
   const loc = "vaultValidator";
-  await checkImplementation(v, v.proxyAddress, loc);
+  await checkProxy(v, v.proxyAddress, loc);
   const validator = await safe(loc, "getContractAt", () =>
     ethers.getContractAt("EmberVaultValidator", v.proxyAddress)
   );
@@ -162,7 +188,7 @@ async function verifyVaults(vaultsMap: any, group: "vaults" | "ethVaults") {
     const vinfo = vaultsMap[key];
     if (!vinfo?.proxyAddress) continue;
     const loc = `${group}.${key}`;
-    await checkImplementation(vinfo, vinfo.proxyAddress, loc);
+    await checkProxy(vinfo, vinfo.proxyAddress, loc);
 
     const vault = await safe(loc, "getContractAt", () =>
       ethers.getContractAt(contractName, vinfo.proxyAddress)
@@ -192,6 +218,99 @@ async function verifyVaults(vaultsMap: any, group: "vaults" | "ethVaults") {
 
     const maxTVL = await safe(loc, "maxTVL()", () => vault.maxTVL());
     check(vinfo, "maxTVL", maxTVL, loc);
+  }
+}
+
+/** Deployment-file field for each library linked into an AtomicLiquidity implementation. */
+const ATOMIC_LIQUIDITY_LIB_FIELDS: Record<string, string> = {
+  AtomicLiquidityLib: "libraryAddress",
+  VaultPlatformFeeLib: "vaultPlatformFeeLibAddress",
+  WithdrawalQueueLib: "withdrawalQueueLibAddress",
+};
+
+async function verifyAtomicLiquidityVaults(map: any) {
+  if (!map) return;
+  for (const key of Object.keys(map)) {
+    const info = map[key];
+    if (!info?.proxyAddress) continue;
+    const loc = `atomicLiquidityVaults.${key}`;
+    const impl = await checkProxy(info, info.proxyAddress, loc);
+
+    const vault = await safe(loc, "getContractAt", () =>
+      ethers.getContractAt("AtomicLiquidity", info.proxyAddress)
+    );
+    if (!vault) continue;
+
+    const owner = await safe(loc, "owner()", () => vault.owner());
+    check(info, "ownerAddress", owner, loc, { address: true });
+
+    const roles = await safe(loc, "roles()", () => vault.roles());
+    if (roles) {
+      check(info, "admin", roles.admin, loc, { address: true });
+      check(info, "operator", roles.operator, loc, { address: true });
+      check(info, "rateManager", roles.rateManager, loc, { address: true });
+    }
+
+    const pc = await safe(loc, "protocolConfig()", () => vault.protocolConfig());
+    check(info, "protocolConfig", pc, loc, { address: true });
+
+    const validator = await safe(loc, "vaultValidator()", () => vault.vaultValidator());
+    if (validator && validator !== ethers.ZeroAddress) {
+      check(info, "validatorAddress", validator, loc, { address: true });
+    }
+
+    const collateral = await safe(loc, "collateralToken()", () => vault.collateralToken());
+    check(info, "collateralToken", collateral, loc, { address: true });
+
+    const maxTVL = await safe(loc, "maxTVL()", () => vault.maxTVL());
+    check(info, "maxTVL", maxTVL, loc);
+
+    const strategy = await safe(loc, "strategy()", () => vault.strategy());
+    check(info, "strategyAddress", strategy, loc, { address: true });
+
+    // The implementation is linked to its libraries at deploy time, so the library fields
+    // describe the implementation, not the proxy. Read them from its bytecode.
+    if (impl) {
+      const linked = await readLinkedLibraries("AtomicLiquidity", impl);
+      if (!linked) {
+        errors.push({
+          location: loc,
+          detail:
+            "linked libraries: implementation bytecode does not match this build's link references",
+        });
+      } else {
+        for (const [library, field] of Object.entries(ATOMIC_LIQUIDITY_LIB_FIELDS)) {
+          check(info, field, linked[library], loc, { address: true });
+        }
+      }
+    }
+  }
+}
+
+async function verifyDepositParkingLots(map: any) {
+  if (!map) return;
+  for (const key of Object.keys(map)) {
+    const info = map[key];
+    if (!info?.proxyAddress) continue;
+    const loc = `depositParkingLots.${key}`;
+    await checkProxy(info, info.proxyAddress, loc);
+
+    const lot = await safe(loc, "getContractAt", () =>
+      ethers.getContractAt("EmberDepositParkingLot", info.proxyAddress)
+    );
+    if (!lot) continue;
+
+    const owner = await safe(loc, "owner()", () => lot.owner());
+    check(info, "ownerAddress", owner, loc, { address: true });
+
+    const vault = await safe(loc, "vault()", () => lot.vault());
+    check(info, "vault", vault, loc, { address: true });
+
+    const operator = await safe(loc, "operator()", () => lot.operator());
+    check(info, "operator", operator, loc, { address: true });
+
+    const pc = await safe(loc, "protocolConfig()", () => lot.protocolConfig());
+    check(info, "protocolConfig", pc, loc, { address: true });
   }
 }
 
@@ -311,6 +430,8 @@ async function main() {
   await verifyValidator(contracts);
   await verifyVaults(contracts.vaults, "vaults");
   await verifyVaults(contracts.ethVaults, "ethVaults");
+  await verifyAtomicLiquidityVaults(contracts.atomicLiquidityVaults);
+  await verifyDepositParkingLots(contracts.depositParkingLots);
   await verifyOftAdapters(contracts);
   await verifyTimelocks(contracts);
 

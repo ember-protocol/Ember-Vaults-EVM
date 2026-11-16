@@ -1,4 +1,5 @@
 import { ethers } from "hardhat";
+import { waitForCode } from "../utils/chain";
 import * as fs from "fs";
 import { getLzEndpoint, addressToBytes32 } from "../../config/layerzero.config";
 
@@ -113,7 +114,10 @@ async function main() {
   console.log();
 
   // Get receipt token info
-  const receiptToken = await ethers.getContractAt("IERC20Metadata", receiptTokenAddress);
+  const receiptToken = await ethers.getContractAt(
+    "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol:IERC20Metadata",
+    receiptTokenAddress
+  );
   const tokenName = await receiptToken.name();
   const tokenSymbol = await receiptToken.symbol();
   const tokenDecimals = await receiptToken.decimals();
@@ -151,6 +155,7 @@ async function main() {
   }
 
   // Verify adapter configuration
+  await waitForCode(adapterAddress);
   const adapterContract = await ethers.getContractAt(
     "EmberVaultMintBurnOFTAdapter",
     adapterAddress

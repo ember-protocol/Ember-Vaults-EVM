@@ -88,18 +88,8 @@ contract AtomicLiquidity is
 
   // Account struct lives in WithdrawalQueueLib (shared withdrawal-queue bookkeeping).
 
-  struct VaultInitParams {
-    string name;
-    address collateralToken;
-    address admin;
-    address operator;
-    address rateManager;
-    uint256 maxRateChangePerUpdate;
-    uint256 feePercentage;
-    uint256 minWithdrawableShares;
-    uint256 rateUpdateInterval;
-    uint256 maxTVL;
-  }
+  // VaultInitParams is defined in AtomicLiquidityLib so initializeVault can take it
+  // directly. Same fields in the same order, so the `initialize` ABI is unchanged.
 
   // EmberShareConfig and HoldbackEntry are defined in AtomicLiquidityLib so the library
   // can take `storage` references against the same layout.
@@ -652,51 +642,36 @@ contract AtomicLiquidity is
     _disableInitializers();
   }
 
+  /// @dev Argument validation, the sub-account writes and the VaultCreated emit live in
+  ///      AtomicLiquidityLib: they run exactly once per proxy but would otherwise occupy
+  ///      runtime bytecode forever, and this contract sits against EIP-170's limit. What stays
+  ///      here is what cannot move — the OpenZeppelin init chain is inherited internals, and the
+  ///      storage writes are typed with this contract's own structs.
   function initialize(
     address _protocolConfig,
     address initialOwner,
-    VaultInitParams memory params,
+    AtomicLiquidityLib.VaultInitParams memory params,
     address[] memory _subAccounts
   ) public initializer {
-    if (_protocolConfig == address(0)) revert ZeroAddress();
-    if (params.admin == address(0)) revert ZeroAddress();
-    if (params.operator == address(0)) revert ZeroAddress();
-    if (params.rateManager == address(0)) revert ZeroAddress();
-    if (
-      params.admin == params.operator ||
-      params.admin == params.rateManager ||
-      params.operator == params.rateManager
-    ) revert InvalidValue();
+    uint256 currentTime = _getChainTimestampMs();
 
-    if (params.collateralToken == address(0)) revert ZeroAddress();
-
-    IEmberProtocolConfig configProxy = IEmberProtocolConfig(_protocolConfig);
-
-    if (
-      params.rateUpdateInterval < configProxy.getMinRateInterval() ||
-      params.rateUpdateInterval > configProxy.getMaxRateInterval()
-    ) revert InvalidInterval();
-
-    if (params.maxRateChangePerUpdate == 0) revert InvalidRate();
-
-    if (params.feePercentage > configProxy.getMaxAllowedFeePercentage()) revert InvalidValue();
+    uint256 defaultRate = AtomicLiquidityLib.initializeVault(
+      _protocolConfig,
+      params,
+      _subAccounts,
+      currentTime,
+      subAccounts
+    );
 
     __Ownable_init(initialOwner);
     __UUPSUpgradeable_init();
     __ReentrancyGuard_init();
 
-    protocolConfig = configProxy;
-
-    if (bytes(params.name).length == 0) revert InvalidValue();
-    if (params.minWithdrawableShares == 0) revert ZeroAmount();
-    if (params.maxTVL == 0) revert ZeroAmount();
-
+    protocolConfig = IEmberProtocolConfig(_protocolConfig);
     _vaultName = params.name;
     collateralToken = params.collateralToken;
     maxTVL = params.maxTVL;
     minWithdrawableShares = params.minWithdrawableShares;
-
-    uint256 currentTime = _getChainTimestampMs();
 
     platformFee = VaultPlatformFeeLib.PlatformFee({
       accrued: 0,
@@ -705,15 +680,11 @@ contract AtomicLiquidity is
     });
 
     rate = Rate({
-      value: configProxy.getDefaultRate(),
+      value: defaultRate,
       maxRateChangePerUpdate: params.maxRateChangePerUpdate,
       rateUpdateInterval: params.rateUpdateInterval,
       lastUpdatedAt: currentTime
     });
-
-    if (configProxy.isAccountBlacklisted(params.admin)) revert Blacklisted();
-    if (configProxy.isAccountBlacklisted(params.operator)) revert Blacklisted();
-    if (configProxy.isAccountBlacklisted(params.rateManager)) revert Blacklisted();
 
     roles = Roles({
       admin: params.admin,
@@ -721,36 +692,7 @@ contract AtomicLiquidity is
       rateManager: params.rateManager
     });
 
-    for (uint256 i = 0; i < _subAccounts.length; i++) {
-      address subAccount = _subAccounts[i];
-      if (subAccount == address(0)) revert ZeroAddress();
-      if (
-        subAccount == params.admin ||
-        subAccount == params.operator ||
-        subAccount == params.rateManager
-      ) revert InvalidValue();
-      subAccounts[subAccount] = true;
-    }
-
     sequenceNumber = 0;
-
-    emit VaultCreated(
-      address(this),
-      params.name,
-      params.collateralToken,
-      roles.admin,
-      roles.operator,
-      roles.rateManager,
-      _subAccounts,
-      minWithdrawableShares,
-      platformFee.platformFeePercentage,
-      rate.maxRateChangePerUpdate,
-      rate.rateUpdateInterval,
-      rate.value,
-      maxTVL,
-      currentTime,
-      sequenceNumber
-    );
   }
 
   // ============================================
@@ -1394,6 +1336,9 @@ contract AtomicLiquidity is
     // on safeTransfer(address(0)), freezing the FIFO withdrawal queue at the head. Matches
     // swapEmberShares' guard.
     if (receiver == address(0)) revert ZeroAddress();
+    // Both sides, so shares moved to an unlisted address can't be queued for redemption and a
+    // listed holder can't pay out to an unlisted one.
+    if (!_withdrawAllowed(shareOwner) || !_withdrawAllowed(receiver)) revert WithdrawNotAllowed();
 
     if (shares < minWithdrawableShares) revert InsufficientShares();
 
@@ -1473,6 +1418,8 @@ contract AtomicLiquidity is
     if (cumulativeInstantWithdrawShares + shares > maxInstantWithdrawShares)
       revert InstantWithdrawCapExceeded();
 
+    if (!_withdrawAllowed(msg.sender) || !_withdrawAllowed(receiver)) revert WithdrawNotAllowed();
+
     // Settle accrued time-based platform fees against the OLD totalShares before the burn,
     // so prior elapsed time is not re-priced against a smaller TVL. (A later revert inside
     // the library rolls this back with the rest of the call.)
@@ -1510,6 +1457,23 @@ contract AtomicLiquidity is
   // ============================================
   // Cross-Vault EmberShare Instant Swap
   // ============================================
+
+  /// @notice True: this vault checks the validator's withdrawal allow-list on every exit.
+  /// @dev EmberProtocolConfig refuses a withdrawal list for any vault that doesn't report this,
+  ///      so a list can't be recorded on a vault type that would silently ignore it. Every path
+  ///      that moves collateral out for a user honours it: `redeemShares` and `instantWithdraw`
+  ///      reject outright, `processWithdrawalRequests` skips and returns the shares, and
+  ///      `swapEmberShares` checks this list alongside the source vault's.
+  function enforcesWithdrawAllowList() external pure returns (bool) {
+    return true;
+  }
+
+  /// @dev Whether `account` may withdraw under this vault's allow-list (open while the list is
+  ///      empty). See AtomicLiquidityLib.withdrawAllowed for why a data-less revert reads as
+  ///      allowed.
+  function _withdrawAllowed(address account) private view returns (bool) {
+    return AtomicLiquidityLib.withdrawAllowed(address(this), address(vaultValidator), account);
+  }
 
   /// @notice Atomically swaps an EmberVault share-token holding for underlying collateral.
   /// @dev Caller transfers `shareAmount` of EmberVault receipt tokens to this contract; in
@@ -1577,7 +1541,8 @@ contract AtomicLiquidity is
         holdbackWaived: holdbackWaivedAddresses[shareOwner],
         hasActiveRedemptionHistory: hasActiveRedemptionHistory,
         vaultTotalAssets: totalAssets(),
-        minNetOut: minNetOut
+        minNetOut: minNetOut,
+        vaultValidator: address(vaultValidator)
       }),
       emberShareConfigs[share],
       _holdbackQueues[share]
@@ -1631,6 +1596,7 @@ contract AtomicLiquidity is
         collateralToken: collateralToken,
         strategy: address(strategy),
         protocolConfig: address(protocolConfig),
+        vaultValidator: address(vaultValidator),
         sequenceNumber: sequenceNumber,
         timestamp: _getChainTimestampMs()
       }),
@@ -1646,6 +1612,7 @@ contract AtomicLiquidity is
   ///         release time and is now payable again).
   /// @return amount The collateral transferred to the caller.
   function claimHoldback() external nonReentrant returns (uint256 amount) {
+    if (!_withdrawAllowed(msg.sender)) revert WithdrawNotAllowed();
     amount = _settleHoldback(msg.sender, msg.sender);
   }
 
@@ -1655,6 +1622,7 @@ contract AtomicLiquidity is
   /// @param recipient The address whose escrowed holdback is delivered.
   /// @return amount The collateral transferred to `recipient`.
   function claimHoldbackFor(address recipient) external nonReentrant returns (uint256 amount) {
+    if (!_withdrawAllowed(recipient)) revert WithdrawNotAllowed();
     amount = _settleHoldback(recipient, recipient);
   }
 
@@ -1665,6 +1633,9 @@ contract AtomicLiquidity is
   /// @return amount The collateral transferred to `to`.
   function claimHoldbackTo(address to) external nonReentrant returns (uint256 amount) {
     if (to == address(0)) revert ZeroAddress();
+    // Both sides, matching `redeemShares`: gating only the caller would let a barred holder
+    // route the payout to a listed address, which is the bypass the list exists to stop.
+    if (!_withdrawAllowed(msg.sender) || !_withdrawAllowed(to)) revert WithdrawNotAllowed();
     amount = _settleHoldback(msg.sender, to);
   }
 
@@ -1675,6 +1646,12 @@ contract AtomicLiquidity is
   /// @dev Moves user funds, so it is gated to the UUPS `owner`, which MUST be the timelock and/or
   ///      multisig (same trust tier as {_authorizeUpgrade}). Direct the funds to the rightful
   ///      party (identifiable off-chain from `HoldbackTransferDeferred`).
+  ///
+  ///      Deliberately NOT gated on the withdrawal allow-list, unlike the three claim paths
+  ///      above. This is the escape hatch: gating it would lock an escrow forever whenever the
+  ///      recipient is never listed, reintroducing exactly the permanent loss that escrowing
+  ///      (rather than forfeiting) the payout was meant to remove. The owner is already the
+  ///      highest trust tier in this contract and decides where the funds rightfully go.
   /// @param recipient The stuck escrow key (the original holdback recipient).
   /// @param to Destination for the recovered collateral.
   /// @return amount The collateral transferred to `to`.
@@ -2008,7 +1985,7 @@ contract AtomicLiquidity is
   }
 
   function version() external pure virtual returns (string memory) {
-    return "v1.0.0";
+    return "v1.1.0";
   }
 
   function vaultName() external view returns (string memory) {

@@ -1,0 +1,95 @@
+{
+  "network": "mantle_sepolia",
+  "chainId": "5003",
+  "contracts": {
+    "protocolConfig": {
+      "proxyAddress": "0xDDbB70183d2D9B6FBd59537441B3B929adA7929A",
+      "implementationAddress": "0x297B06F976f97ca00704f481d2F2Ab9839A438D4",
+      "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+      "version": "v2.2.2",
+      "deployedAt": "2026-08-27T10:36:49.094Z",
+      "deploymentBlockNumber": 43141165
+    },
+    "depositTokens": {
+      "USDC": {
+        "proxyAddress": "0xE8D35ba614485fcc3cb573e9641d9E9F672E4494",
+        "implementationAddress": "0x3e6876672146Be11e93e0Be2B78099A453B48b88",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "USD Coin",
+        "symbol": "USDC",
+        "decimals": 6,
+        "version": "1",
+        "deployedAt": "2026-08-27T10:39:01.929Z",
+        "deploymentBlockNumber": 43141230
+      }
+    },
+    "vaults": {
+      "emberTestCcipVault": {
+        "proxyAddress": "0x9F32C78475A7F86125E4ff7Fa1383e1994602623",
+        "implementationAddress": "0xe981f77244C6F903c36b9a3296F6b2916056903A",
+        "ownerAddress": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "name": "Ember Test Ccip Vault",
+        "receiptTokenSymbol": "etCCIP",
+        "collateralToken": "0xE8D35ba614485fcc3cb573e9641d9E9F672E4494",
+        "admin": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "operator": "0xd2f07D0287c96dcEf7F976f8d24e191c7088696B",
+        "rateManager": "0xdea1a3b9380bc4EA608854Cf2687b832ef0E02B3",
+        "protocolConfig": "0xDDbB70183d2D9B6FBd59537441B3B929adA7929A",
+        "maxTVL": "10000000000000",
+        "version": "v2.4.0",
+        "deployedAt": "2026-08-27T10:43:47.982Z",
+        "deploymentBlockNumber": 43141373,
+        "bridgeAdapter": "0x41Cbc62e52415C3717e0C7DdcD3CaF1A224aeeA7",
+        "bridgeAdapterUpdatedAt": "2026-08-27T11:40:06.962496Z"
+      }
+    },
+    "ccipPoolFactory": {
+      "address": "0x6B3A7F17684dE8Ec7CD19A086b0F1f9407c6D073",
+      "deployedAt": "2026-08-27T11:18:06.801Z"
+    },
+    "ccipTokenPools": {
+      "emberTestCcipVaultCcipPool": {
+        "address": "0x41Cbc62e52415C3717e0C7DdcD3CaF1A224aeeA7",
+        "contractName": "EmberTokenPool",
+        "typeAndVersion": "EmberBurnMintTokenPool 1.0.0",
+        "vaultKey": "emberTestCcipVault",
+        "vaultAddress": "0x9F32C78475A7F86125E4ff7Fa1383e1994602623",
+        "receiptTokenSymbol": "etCCIP",
+        "decimals": 6,
+        "router": "0xFd33fd627017fEf041445FC19a2B6521C9778f86",
+        "rmnProxy": "0xcCB84Ec3F6AFdD2052134f74aaAc95Ae41A7B333",
+        "tokenAdminRegistry": "0x0F1eE88A582f31d92510E300fc1330AA5a525D51",
+        "registryModule": "0xf76cE612250eeEb8889F49FBCB11f1c2705305F6",
+        "chainSelector": "8236463271206331221",
+        "advancedPoolHooks": "0x0000000000000000000000000000000000000000",
+        "owner": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+        "factory": "0x6B3A7F17684dE8Ec7CD19A086b0F1f9407c6D073",
+        "salt": "ember.ccip.pool.v1",
+        "deployedAt": "2026-08-27T11:37:02.031Z",
+        "deploymentBlockNumber": 43142964,
+        "lanes": {
+          "16015286601757825753": {
+            "remoteNetwork": "sepolia",
+            "remoteChainSelector": "16015286601757825753",
+            "remotePool": "0xda1a710b7165FBC1d43cC556A25354cC501e3833",
+            "remoteToken": "0x7eBE31DF40e67c1a67A539a7bbc078732347dCA9",
+            "rateLimits": {
+              "enabled": false,
+              "capacity": "0",
+              "rate": "0"
+            },
+            "configuredAt": "2026-08-27T11:37:18.526Z",
+            "txHash": "0x9b4b42317227ca286a92d9a432e3a0ff2482b403222267c46157d61503c05ddc",
+            "blockNumber": 43142982
+          }
+        },
+        "tokenAdminRegistration": {
+          "administrator": "0xc88901227a85a0Cd3D975A409dD9043Bc0712a56",
+          "tokenPool": "0x41Cbc62e52415C3717e0C7DdcD3CaF1A224aeeA7",
+          "registeredAt": "2026-08-27T11:38:49.920Z"
+        },
+        "allowedFinalityConfig": "0x00010001"
+      }
+    }
+  }
+}

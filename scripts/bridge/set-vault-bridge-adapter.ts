@@ -248,13 +248,25 @@ async function main() {
   console.log("Transaction confirmed in block:", receipt?.blockNumber);
 
   // Verify the adapter was set correctly
-  const updatedAdapter = await vault.bridgeAdapter();
+  // Poll rather than read once. tx.wait() only proves the transaction was mined on the node that
+  // answered; behind a load balancer the next read can hit one that has not caught up and report
+  // the old adapter, which reads as a failed cutover when it actually succeeded.
+  let updatedAdapter = await vault.bridgeAdapter();
+  for (let i = 0; i < 20 && updatedAdapter.toLowerCase() !== newAdapterAddress.toLowerCase(); i++) {
+    if (i === 0) console.log("  ⏳ waiting for the adapter change to be visible on the RPC...");
+    await new Promise((r) => setTimeout(r, 3000));
+    updatedAdapter = await vault.bridgeAdapter();
+  }
+
   if (updatedAdapter.toLowerCase() === newAdapterAddress.toLowerCase()) {
     console.log("\n✅ Bridge adapter configured successfully!");
   } else {
     console.error("\n❌ Error: Bridge adapter verification failed!");
     console.log("Expected:", newAdapterAddress);
     console.log("Got:", updatedAdapter);
+    console.log(
+      "\nThe transaction may still have succeeded — re-read the vault before re-running."
+    );
     process.exit(1);
   }
 

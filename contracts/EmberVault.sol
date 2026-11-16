@@ -18,6 +18,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "./interfaces/IEmberProtocolConfig.sol";
 import "./interfaces/IBridgeable.sol";
 import "./interfaces/IEmberVaultValidator.sol";
@@ -35,6 +36,9 @@ error IndexOutOfBounds();
 error UseRedeemShares();
 error BridgeAmountTooSmall();
 error BridgeAmountTooLarge();
+/// @notice Thrown when a `setNetBridgedOutShares` call states a current counter value that does
+///         not match the stored one, meaning a bridge message landed after the caller read it.
+error UnexpectedNetBridgedOutShares();
 /// @notice Thrown when a parking lot is set and the caller is neither the parking lot nor a
 ///         validator deposit-allow-listed depositor (they must route through the parking lot).
 error UseParkingLot();
@@ -57,6 +61,7 @@ contract EmberVault is
   ReentrancyGuardUpgradeable,
   IBridgeable
 {
+  using SafeCast for uint256;
   using SafeERC20 for IERC20;
 
   // Structs
@@ -208,13 +213,18 @@ contract EmberVault is
   ///         behavior. Set by the vault owner.
   address public parkingLot;
 
+  /// @notice Shares burned by `bridgeBurn` minus shares minted by `bridgeMint`. Negative when
+  ///         this chain is a net importer. The deposit cap counts these as still held here,
+  ///         so bridging shares out cannot free cap room for new deposits.
+  int256 public netBridgedOutShares;
+
   /**
-   * @dev Reserved storage gap for future upgrades. Reduced from 49 to 48 for the appended
-   *      `parkingLot` variable (added after all pre-existing variables, consuming one former
-   *      gap slot, so the prior storage layout is unchanged — upgrade-safe).
+   * @dev Reserved storage gap for future upgrades. Reduced from 49 to 48 for `parkingLot` and
+   *      from 48 to 47 for `netBridgedOutShares`, each appended after all pre-existing
+   *      variables and consuming one former gap slot, so the prior layout is unchanged.
    * See: https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
    */
-  uint256[48] private __gap;
+  uint256[47] private __gap;
 
   // Events
   /// @notice Emitted when a vault is created
@@ -251,6 +261,15 @@ contract EmberVault is
     address indexed vault,
     uint256 previousMaxTVL,
     uint256 newMaxTVL,
+    uint256 timestamp,
+    uint256 sequenceNumber
+  );
+
+  /// @notice Emitted when an admin reconciles the net-bridged-out share counter
+  event VaultNetBridgedOutSharesUpdated(
+    address indexed vault,
+    int256 previousNetBridgedOutShares,
+    int256 newNetBridgedOutShares,
     uint256 timestamp,
     uint256 sequenceNumber
   );
@@ -663,6 +682,69 @@ contract EmberVault is
       address(this),
       previousMaxTVL,
       newMaxTVL,
+      _getChainTimestampMs(),
+      sequenceNumber
+    );
+  }
+
+  /// @notice Reconciles `netBridgedOutShares` to a known-good value
+  /// @dev Only callable by protocol config, caller must be admin. The counter is normally
+  ///      maintained entirely by `bridgeBurn`/`bridgeMint`, which keep it honest for free: every
+  ///      burn on one chain is matched by a mint on another, so
+  ///
+  ///          sum over chains of (totalSupply + netBridgedOutShares) == global supply
+  ///
+  ///      holds without anyone maintaining it. That identity is what bounds global TVL by the
+  ///      sum of the per-chain caps. A write here is one-sided, and no chain can read another's
+  ///      counter, so nothing on-chain can detect a break — the bound simply stops holding.
+  ///
+  ///      USE THIS ONLY to write off a burn whose inbound mint can never execute. There the
+  ///      shares really are gone, the correction belongs on the source chain alone, and the
+  ///      identity is restored rather than broken.
+  ///
+  ///      DO NOT use it to seed a vault upgraded after it had already bridged. 0 is the correct
+  ///      starting value for every vault including those: it sets today's local supply as each
+  ///      chain's baseline and bounds everything from that point. Seeding real history instead
+  ///      re-credits an overage that has already been deposited, which on `emberPharosAlpha`
+  ///      would have allowed roughly 17M of global TVL beyond the sum of the caps. The analysis
+  ///      is in the "Migration — no seed, by design" section of the PR that introduced the
+  ///      counter.
+  ///
+  ///      DO NOT use it to rebalance cap room between chains. A negative counter on a chain that
+  ///      redeemed imported shares is CORRECT — those shares no longer exist anywhere, so the
+  ///      room is genuinely re-issuable. Moving it by hand is precisely how the sum of caps gets
+  ///      exceeded.
+  ///
+  ///      Any legitimate use is still a two-chain operation in one window: pause the lane, prove
+  ///      nothing is in flight, and record the before/after on both sides.
+  ///
+  ///      Lowering the counter creates deposit capacity, so this is deliberately gated exactly
+  ///      like `setMaxTVL` rather than on the operator role, whose key is hot.
+  ///
+  ///      `expected` is the value the caller believes is current. A bridge message landing
+  ///      between the off-chain read and this transaction moves the counter, and would otherwise
+  ///      be silently overwritten; the guard turns that race into a revert. Note it is a
+  ///      same-chain guard only — it says nothing about the other chain, which is where the
+  ///      identity above actually lives.
+  /// @param caller The original caller address (must be admin)
+  /// @param expected The counter value the caller observed when deciding `newValue`
+  /// @param newValue The reconciled counter value
+  function setNetBridgedOutShares(
+    address caller,
+    int256 expected,
+    int256 newValue
+  ) external nonReentrant onlyProtocolConfig onlyAdmin(caller) {
+    int256 previous = netBridgedOutShares;
+    if (previous != expected) revert UnexpectedNetBridgedOutShares();
+    if (previous == newValue) revert SameValue();
+
+    netBridgedOutShares = newValue;
+    _incrementSequence();
+
+    emit VaultNetBridgedOutSharesUpdated(
+      address(this),
+      previous,
+      newValue,
       _getChainTimestampMs(),
       sequenceNumber
     );
@@ -1097,6 +1179,8 @@ contract EmberVault is
 
     // Mint shares directly (bypassing deposit flow for bridge operations)
     _mint(to, amount);
+    // Deliberately uncapped: the shares were already burned on the source chain.
+    netBridgedOutShares -= amount.toInt256();
 
     unchecked {
       sequenceNumber++;
@@ -1135,6 +1219,7 @@ contract EmberVault is
 
     // Burn shares directly (bypassing withdrawal flow for bridge operations)
     _burn(from, amount);
+    netBridgedOutShares += amount.toInt256();
 
     unchecked {
       sequenceNumber++;
@@ -1185,6 +1270,8 @@ contract EmberVault is
     // Verify user is not blacklisted
     if (configProxy.isAccountBlacklisted(shareOwner)) revert Blacklisted();
     if (configProxy.isAccountBlacklisted(receiver)) revert Blacklisted();
+    // Withdrawal allow-list: both ends, as the blacklist checks above.
+    if (!_withdrawAllowed(shareOwner) || !_withdrawAllowed(receiver)) revert WithdrawNotAllowed();
     // Reject a null receiver: such a request would be queued, then revert at processing time
     // on the transfer to address(0), freezing the FIFO withdrawal queue at the head.
     if (receiver == address(0)) revert ZeroAddress();
@@ -1451,7 +1538,7 @@ contract EmberVault is
    * @return Version number
    */
   function version() external pure virtual returns (string memory) {
-    return "v2.4.0";
+    return "v2.7.0";
   }
 
   /// @notice Get the vault name (legacy function for backwards compatibility)
@@ -1479,6 +1566,16 @@ contract EmberVault is
       return 0;
     }
     return convertToAssets(shares);
+  }
+
+  /// @dev The TVL `maxTVL` is enforced against: local supply plus net shares bridged out,
+  ///      i.e. net deposits made on this chain. Using `totalAssets()` let bridging out free cap
+  ///      room for repeat deposits. The sum goes negative only when this chain has redeemed
+  ///      more than was deposited here; those shares no longer exist anywhere, so the room they
+  ///      free keeps global supply within the sum of every chain's cap. Reads as 0 when negative.
+  function _capTVL() internal view returns (uint256) {
+    int256 shares = totalSupply().toInt256() + netBridgedOutShares;
+    return shares > 0 ? convertToAssets(uint256(shares)) : 0;
   }
 
   /**
@@ -1581,7 +1678,7 @@ contract EmberVault is
     if (pauseStatus.deposits || protocolConfig.getProtocolPauseStatus()) {
       return 0;
     }
-    uint256 currentTVL = totalAssets();
+    uint256 currentTVL = _capTVL();
     if (currentTVL >= maxTVL) {
       return 0;
     }
@@ -1596,7 +1693,7 @@ contract EmberVault is
     if (pauseStatus.deposits || protocolConfig.getProtocolPauseStatus()) {
       return 0;
     }
-    uint256 currentTVL = totalAssets();
+    uint256 currentTVL = _capTVL();
     if (currentTVL >= maxTVL) {
       return 0;
     }
@@ -1848,6 +1945,33 @@ contract EmberVault is
     }
   }
 
+  /// @notice True: this vault checks the validator's withdrawal allow-list on redemption.
+  /// @dev EmberProtocolConfig refuses a withdrawal list for any vault that doesn't report this,
+  ///      so a list can't be recorded on a vault type that would silently ignore it.
+  function enforcesWithdrawAllowList() external pure returns (bool) {
+    return true;
+  }
+
+  /// @dev Whether `account` may withdraw under the vault's withdrawal allow-list (open while the
+  ///      list is empty). A raw staticcall rather than a typed call: in this contract any new typed
+  ///      external call shifts the via-IR inliner and pushes an unrelated function past the stack
+  ///      limit. A revert with no data means the validator predates the list, so nothing can be
+  ///      listed on it and it reads as allowed — a real rejection always carries `WithdrawNotAllowed`.
+  ///      That keeps redemptions working if a vault is upgraded before its validator.
+  function _withdrawAllowed(address account) private view returns (bool) {
+    address validator = address(vaultValidator);
+    if (validator == address(0)) return true;
+    // A non-zero validator with no code is a misconfiguration, not a legacy validator: a
+    // staticcall to a codeless address SUCCEEDS returning nothing, which would read as allowed
+    // and silently disable the list. Fail closed instead — loudly on the user-facing paths, and
+    // as a skip-and-return-shares in processing, which is recoverable.
+    if (validator.code.length == 0) return false;
+    (bool ok, bytes memory err) = validator.staticcall(
+      abi.encodeWithSelector(IEmberVaultValidator.validateWithdraw.selector, address(this), account)
+    );
+    return ok || err.length == 0;
+  }
+
   /// @notice Internal helper that implements the core deposit logic
   /// @param assets Amount of assets to deposit
   /// @param receiver Address to receive the shares
@@ -1887,7 +2011,7 @@ contract EmberVault is
     uint256 totalShares = totalSupply();
 
     // Check TVL doesn't exceed maxTVL
-    uint256 currentTVL = totalAssets();
+    uint256 currentTVL = _capTVL();
     if (currentTVL > maxTVL) revert MaxTVLReached();
 
     // Increment sequence number
@@ -1951,7 +2075,7 @@ contract EmberVault is
     IERC20(asset()).safeTransferFrom(depositor, address(this), assets);
 
     _mint(receiver, shares);
-    if (totalAssets() > maxTVL) revert MaxTVLReached();
+    if (_capTVL() > maxTVL) revert MaxTVLReached();
 
     _incrementSequence();
 
@@ -2096,16 +2220,23 @@ contract EmberVault is
     // Determine the index to use for account state update
     uint256 indexToUse = isCancelled ? cancelIndex : type(uint256).max;
 
-    // Check if request should be skipped (blacklisted owner/receiver, cancelled, or zero withdraw amount)
+    // Check if request should be skipped (blacklisted or no longer withdraw-allow-listed
+    // owner/receiver, cancelled, or zero withdraw amount). The allow-list is re-checked here for
+    // the same reason the blacklist is: an address can be removed after its request was queued.
     bool ownerBlacklisted = configProxy.isAccountBlacklisted(request.owner);
     bool receiverBlacklisted = configProxy.isAccountBlacklisted(request.receiver);
-    bool shouldSkip = ownerBlacklisted || receiverBlacklisted || isCancelled || withdrawAmount == 0;
+    bool shouldSkip = ownerBlacklisted ||
+      receiverBlacklisted ||
+      isCancelled ||
+      withdrawAmount == 0 ||
+      !_withdrawAllowed(request.owner) ||
+      !_withdrawAllowed(request.receiver);
 
     uint256 permanentFeeCharged = 0;
     uint256 timeBasedFeeCharged = 0;
 
     if (shouldSkip) {
-      // If skipped due to blacklisting or zero amount (not cancellation), set index to numCancelledRequests
+      // If skipped due to blacklisting, the allow-list or zero amount (not cancellation), set index to numCancelledRequests
       if (!isCancelled) {
         indexToUse = numCancelledRequests;
       }

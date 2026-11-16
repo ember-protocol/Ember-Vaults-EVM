@@ -73,7 +73,8 @@ function flatten(node: any, prefix: string, out: FlatEntry[]): void {
 async function verifyOne(
   address: string,
   label: string,
-  constructorArguments: unknown[] = []
+  constructorArguments: unknown[] = [],
+  isProxy = false
 ): Promise<void> {
   const useBlockscout = BLOCKSCOUT_NETWORKS.has(network.name);
   console.log(
@@ -107,6 +108,37 @@ async function verifyOne(
     // can be finished manually from the explorer UI. Treat this as a
     // soft-warn instead of a hard failure so subsequent verifications in
     // the run aren't blocked.
+    // The ERC1967 proxy is not built from this repo's sources. The OZ upgrades plugin
+    // deploys it from a precompiled artifact bundled in @openzeppelin/upgrades-core
+    // (artifacts/build-info-v5.json, currently solc 0.8.29), so hardhat-verify sees a
+    // compiler this project does not configure and refuses. Adding 0.8.29 to the compiler
+    // list would not help — we have no ERC1967Proxy source to compile — and would drag
+    // every ^0.8.22 contract onto a newer compiler, changing deployed bytecode. Etherscan
+    // usually short-circuits this because ERC1967Proxy is already a known contract;
+    // Blockscout does not. The implementation is what matters, so warn and continue.
+    if (isProxy && message.includes("but your configured compiler versions are")) {
+      console.warn(
+        `⚠️  ${label}: skipped — the OZ ERC1967 proxy is precompiled by ` +
+          `@openzeppelin/upgrades-core (solc 0.8.29) and is not built from this repo. ` +
+          `Verify the implementation instead, then use the explorer's ` +
+          `"Is this a Proxy?" link.`
+      );
+      return;
+    }
+    // SocialScan returns Etherscan-shaped JSON but puts the payload in `message`, not
+    // `result`:  {"message":"the action is error","status":"0"}.  hardhat-verify does
+    // `this.message = response.result`, so on any SocialScan error `message` is undefined and
+    // the plugin throws while classifying it — masking whatever the explorer actually said.
+    // Nothing is wrong with the contract; the API shapes just disagree.
+    if (message.includes("Cannot read properties of undefined (reading 'startsWith')")) {
+      console.warn(
+        `⚠️  ${label}: NOT verified — hardhat-verify cannot read SocialScan's response ` +
+          `shape (it returns the payload in "message", the plugin expects "result"). ` +
+          `Export the standard JSON input and verify through the explorer UI instead:\n` +
+          `      CONTRACT=<ContractName> yarn verify:export-input`
+      );
+      return;
+    }
     if (
       message.includes("Free API access is not supported for this chain") ||
       message.includes("Failed to get logs for contract")
@@ -191,10 +223,12 @@ async function main(): Promise<void> {
     // forwarded through the constructor. The OZ upgrades plugin typically calls initialize()
     // through the proxy ctor — if Etherscan rejects this, re-run and pass the encoded init
     // calldata as the second argument.
-    await verifyOne(record.proxyAddress, `${displayName} Proxy`, [
-      record.implementationAddress,
-      "0x",
-    ]);
+    await verifyOne(
+      record.proxyAddress,
+      `${displayName} Proxy`,
+      [record.implementationAddress, "0x"],
+      true
+    );
   } else if (record.address) {
     const argsHint = collectLikelyConstructorArgs(record);
     if (argsHint) {
